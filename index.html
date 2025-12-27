@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>指導予約システム</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background: #f0f2f5; color: #333; }
+        h3 { text-align: center; color: #1a73e8; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        .info { font-size: 0.85em; color: #666; margin-bottom: 8px; font-weight: bold; }
+        input[type="date"], select { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
+        button { width: 100%; padding: 14px; margin-top: 15px; border-radius: 8px; border: none; background: #00b900; color: white; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:active { background: #009e00; transform: scale(0.98); }
+        #seniorList { margin-top: 20px; }
+        .senior-card { border-left: 5px solid #00b900; }
+    </style>
+</head>
+<body>
+    <h3>指導予約</h3>
+    
+    <div class="card">
+        <div class="info">① 日付を選択</div>
+        <input type="date" id="dateInput" onchange="fetchSchedule()">
+    </div>
+
+    <div id="seniorList"></div>
+
+    <script>
+        // --- 設定箇所 ---
+        const LIFF_ID = "2008788046-laPjP0Ec"; 
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbzk608cfKjhAM6f5A2qPqgDQXrs4j-InFS1f2lv63h-4_c-QQ3glAYnDr2C9do3nhSq/exec"; 
+
+        async function main() {
+            await liff.init({ liffId: LIFF_ID });
+            if (!liff.isLoggedIn()) { liff.login(); }
+        }
+
+        async function fetchSchedule() {
+            const date = document.getElementById('dateInput').value;
+            if (!date) return;
+            document.getElementById('seniorList').innerHTML = "読み込み中...";
+            
+            try {
+                const res = await fetch(`${GAS_URL}?action=getSchedule&date=${date}`);
+                const data = await res.json();
+                
+                let html = '';
+                data.forEach(senior => {
+                    html += `
+                    <div class="card senior-card">
+                        <strong style="font-size: 1.1em;">${senior.name} 先輩</strong>
+                        <div style="margin-top:10px;" class="info">開始時間</div>
+                        <select id="time-${senior.name}">
+                            ${senior.slots.map(s => `<option value="${s}">${s}</option>`).join('')}
+                        </select>
+                        <div style="margin-top:10px;" class="info">指導時間</div>
+                        <select id="duration-${senior.name}">
+                            <option value="1">30分</option>
+                            <option value="2">1時間</option>
+                            <option value="3">1.5時間</option>
+                            <option value="4">2時間</option>
+                        </select>
+                        <button onclick="reserve('${senior.name}')">この内容で予約する</button>
+                    </div>`;
+                });
+                document.getElementById('seniorList').innerHTML = html || '<p style="text-align:center;">空いている先輩はいません</p>';
+            } catch (e) {
+                document.getElementById('seniorList').innerHTML = "エラーが発生しました。管理者に連絡してください。";
+            }
+        }
+
+        async function reserve(seniorName) {
+            if (!confirm(`${seniorName} 先輩に予約を入れますか？`)) return;
+            
+            const date = document.getElementById('dateInput').value;
+            const time = document.getElementById(`time-${seniorName}`).value;
+            const duration = document.getElementById(`duration-${seniorName}`).value;
+            const user = await liff.getProfile();
+
+            const res = await fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    seniorName, date, time, duration,
+                    juniorName: user.displayName,
+                    juniorId: user.userId
+                })
+            });
+            
+            if (res.ok) {
+                alert('予約が完了しました！LINEメッセージを確認してください。');
+                liff.closeWindow();
+            } else {
+                alert('予約に失敗しました。既に枠が埋まっている可能性があります。');
+            }
+        }
+        main();
+    </script>
+</body>
+</html>
