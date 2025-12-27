@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -11,7 +10,7 @@
         h3 { text-align: center; color: #1a73e8; }
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
         .info { font-size: 0.85em; color: #666; margin-bottom: 8px; font-weight: bold; }
-        input[type="date"], select { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
+        select { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; background-color: #fff; }
         button { width: 100%; padding: 14px; margin-top: 15px; border-radius: 8px; border: none; background: #00b900; color: white; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }
         button:active { background: #009e00; transform: scale(0.98); }
         #seniorList { margin-top: 20px; }
@@ -24,7 +23,7 @@
     
     <div class="card">
         <div class="info">① 日付を選択</div>
-        <input type="date" id="dateInput" onchange="fetchSchedule()">
+        <select id="dateInput" onchange="fetchSchedule()"></select>
     </div>
 
     <div id="seniorList"></div>
@@ -36,17 +35,30 @@
         const LIFF_ID = "2008788046-laPjP0Ec"; 
         const GAS_URL = "https://script.google.com/macros/s/AKfycbygJQBKh1xIEQZUJ0CykesxFKLm9PYO3UG4U45f87W5h-qEj2HsqhE2QlP3dX-iFJHV/exec"; 
 
-        // 起動時に実行
         async function main() {
-            // 1. LIFF通信を待たずにまず日付をセット（自動入力の確実化）
+            // 1. 日付プルダウンを生成（明日から30日分）
             const dateInput = document.getElementById('dateInput');
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            
-            const y = tomorrow.getFullYear();
-            const m = ("0" + (tomorrow.getMonth() + 1)).slice(-2);
-            const d = ("0" + tomorrow.getDate()).slice(-2);
-            dateInput.value = `${y}-${m}-${d}`;
+            const today = new Date();
+            const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
+
+            for (let i = 1; i <= 30; i++) {
+                const targetDate = new Date();
+                targetDate.setDate(today.getDate() + i);
+
+                const y = targetDate.getFullYear();
+                const m = ("0" + (targetDate.getMonth() + 1)).slice(-2);
+                const d = ("0" + targetDate.getDate()).slice(-2);
+                
+                // GAS送信用：YYYY-MM-DD
+                const val = `${y}-${m}-${d}`; 
+                // 表示用：M/D(曜日)
+                const label = `${targetDate.getMonth() + 1}/${targetDate.getDate()}(${dayNames[targetDate.getDay()]})`;
+
+                const opt = document.createElement('option');
+                opt.value = val;
+                opt.text = label;
+                dateInput.appendChild(opt);
+            }
 
             try {
                 // 2. LIFFの初期化
@@ -54,7 +66,7 @@
                 if (!liff.isLoggedIn()) {
                     liff.login();
                 } else {
-                    // 3. ログイン済みなら予定を自動読み込み
+                    // 初期表示（明日）のスケジュールを読み込む
                     fetchSchedule();
                 }
             } catch (error) {
@@ -62,7 +74,6 @@
             }
         }
 
-        // 空き状況を取得
         async function fetchSchedule() {
             const date = document.getElementById('dateInput').value;
             if (!date) return;
@@ -97,10 +108,8 @@
             }
         }
 
-        // 予約の実行
         async function reserve(seniorName) {
             if (!confirm(`${seniorName} 先輩に予約を入れますか？`)) return;
-            
             const date = document.getElementById('dateInput').value;
             const time = document.getElementById(`time-${seniorName}`).value;
             const duration = document.getElementById(`duration-${seniorName}`).value;
@@ -110,42 +119,25 @@
                 method: 'POST',
                 body: JSON.stringify({
                     seniorName, date, time, duration,
-                    juniorName: user.displayName,
-                    juniorId: user.userId
+                    juniorName: user.displayName, juniorId: user.userId
                 })
             });
             
             if (res.ok) {
-                alert('予約が完了しました！LINEメッセージを確認してください。');
+                alert('予約完了！');
                 liff.closeWindow();
             } else {
-                alert('予約に失敗しました。既に枠が埋まっている可能性があります。');
+                alert('予約に失敗しました。');
             }
         }
 
-        // 2年生用：ID自動登録
         async function showAdmin() {
             try {
                 const res = await fetch(`${GAS_URL}?action=getSeniors`);
                 const seniors = await res.json();
-                // 切れていた部分を補完
                 let name = prompt("自分の名前を選んで入力してください:\n\n" + seniors.map(s => s[0]).join(", "));
-                
                 if (name) {
                     const user = await liff.getProfile();
                     await fetch(GAS_URL, {
                         method: 'POST',
-                        body: JSON.stringify({ action: 'registerID', name: name, userId: user.userId })
-                    });
-                    alert(name + " 先輩のIDを登録しました。これで予約時に通知が届きます。");
-                }
-            } catch (e) {
-                alert("ID登録中にエラーが発生しました。");
-            }
-        }
-
-        // 最後にプログラムを起動
-        main();
-    </script>
-</body>
-</html>
+                        body
