@@ -39,29 +39,54 @@
         // --- 1. 日付プルダウンを即座に作成する関数 ---
         function initDatePicker() {
             const dateInput = document.getElementById('dateInput');
-            dateInput.innerHTML = ""; // 「読み込み中」を消す
+            dateInput.innerHTML = ""; 
             
-            const today = new Date();
+            const now = new Date();
+            const year = 2026; // 対象とする年
             const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
 
-            for (let i = 1; i <= 30; i++) {
-                const targetDate = new Date();
-                targetDate.setDate(today.getDate() + i);
+            // 開始日を設定（2026/4/2）
+            let startDate = new Date(year, 3, 2); // 月は0から始まるので 3=4月
+            
+            // 終了日を設定（2026/7/31）
+            const endDate = new Date(year, 6, 31); // 6=7月
 
-                const y = targetDate.getFullYear();
-                const m = ("0" + (targetDate.getMonth() + 1)).slice(-2);
-                const d = ("0" + targetDate.getDate()).slice(-2);
+            // 「明日」の計算
+            const tomorrow = new Date();
+            tomorrow.setDate(now.getDate() + 1);
+            tomorrow.setHours(0, 0, 0, 0);
+
+            // もし「明日」が4/2以降なら、開始日を「明日」に更新する
+            if (tomorrow > startDate) {
+                startDate = tomorrow;
+            }
+
+            // ループで日付を生成（開始日から終了日まで）
+            let current = new Date(startDate);
+            while (current <= endDate) {
+                const y = current.getFullYear();
+                const m = ("0" + (current.getMonth() + 1)).slice(-2);
+                const d = ("0" + current.getDate()).slice(-2);
                 
                 const val = `${y}-${m}-${d}`; 
-                const label = `${targetDate.getMonth() + 1}/${targetDate.getDate()}(${dayNames[targetDate.getDay()]})`;
+                const label = `${current.getMonth() + 1}/${current.getDate()}(${dayNames[current.getDay()]})`;
 
                 const opt = document.createElement('option');
                 opt.value = val;
                 opt.text = label;
                 dateInput.appendChild(opt);
+
+                // 翌日に進める
+                current.setDate(current.getDate() + 1);
+            }
+
+            // 万が一期間外でリストが空になった場合の処理
+            if (dateInput.options.length === 0) {
+                const opt = document.createElement('option');
+                opt.text = "現在は予約期間外です";
+                dateInput.appendChild(opt);
             }
         }
-
         // --- 2. メイン処理 ---
         async function main() {
             // まず日付を出す（LIFFを待たない）
@@ -167,3 +192,4 @@
     </script>
 </body>
 </html>
+
