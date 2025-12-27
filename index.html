@@ -15,6 +15,7 @@
         button:active { background: #009e00; transform: scale(0.98); }
         #seniorList { margin-top: 20px; }
         .senior-card { border-left: 5px solid #00b900; }
+        .admin-link { font-size: 0.8em; text-align: center; margin-top: 30px; color: #999; text-decoration: underline; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -27,36 +28,97 @@
 
     <div id="seniorList"></div>
 
+    <div class="admin-link" onclick="showAdmin()">2年生の方（ID登録）はこちら</div>
+
     <script>
         // --- 設定箇所 ---
-const LIFF_ID = "あなたのLIFF_ID"; 
-const GAS_URL = "あなたのGASウェブアプリURL"; 
+        const LIFF_ID = "2008788046-laPjP0Ec"; 
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbygJQBKh1xIEQZUJ0CykesxFKLm9PYO3UG4U45f87W5h-qEj2HsqhE2QlP3dX-iFJHV/exec"; 
 
-async function main() {
-    await liff.init({ liffId: LIFF_ID });
-    if (!liff.isLoggedIn()) { liff.login(); }
+        // 起動時に実行
+        async function main() {
+            await liff.init({ liffId: LIFF_ID });
+            if (!liff.isLoggedIn()) { liff.login(); }
 
-    // 【追加】デフォルトの日付を「明日」に設定
-    const dateInput = document.getElementById('dateInput');
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1); // 1日足す
-    
-    // YYYY-MM-DD形式に変換
-    const y = tomorrow.getFullYear();
-    const m = ("0" + (tomorrow.getMonth() + 1)).slice(-2);
-    const d = ("0" + tomorrow.getDate()).slice(-2);
-    const tomorrowStr = `${y}-${m}-${d}`;
-    
-    dateInput.value = tomorrowStr;
+            // デフォルトの日付を「明日」に設定
+            const dateInput = document.getElementById('dateInput');
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            
+            const y = tomorrow.getFullYear();
+            const m = ("0" + (tomorrow.getMonth() + 1)).slice(-2);
+            const d = ("0" + tomorrow.getDate()).slice(-2);
+            dateInput.value = `${y}-${m}-${d}`;
 
-    // 【追加】開いた瞬間に明日の予定を自動で読み込む
-    fetchSchedule();
-}
+            // 自動で明日の予定を読み込む
+            fetchSchedule();
+        }
 
-// （以下、fetchScheduleやreserveなどの関数はそのまま）
-    </script>
-</body>
+        // 空き状況をGASから取得
+        async function fetchSchedule() {
+            const date = document.getElementById('dateInput').value;
+            if (!date) return;
+            document.getElementById('seniorList').innerHTML = "読み込み中...";
+            
+            try {
+                const res = await fetch(`${GAS_URL}?action=getSchedule&date=${date}`);
+                const data = await res.json();
+                
+                let html = '';
+                data.forEach(senior => {
+                    html += `
+                    <div class="card senior-card">
+                        <strong style="font-size: 1.1em;">${senior.name} 先輩</strong>
+                        <div style="margin-top:10px;" class="info">開始時間</div>
+                        <select id="time-${senior.name}">
+                            ${senior.slots.map(s => `<option value="${s}">${s}</option>`).join('')}
+                        </select>
+                        <div style="margin-top:10px;" class="info">指導時間</div>
+                        <select id="duration-${senior.name}">
+                            <option value="1">30分</option>
+                            <option value="2">1時間</option>
+                            <option value="3">1.5時間</option>
+                            <option value="4">2時間</option>
+                        </select>
+                        <button onclick="reserve('${senior.name}')">この内容で予約する</button>
+                    </div>`;
+                });
+                document.getElementById('seniorList').innerHTML = html || '<p style="text-align:center;">空いている先輩はいません</p>';
+            } catch (e) {
+                document.getElementById('seniorList').innerHTML = "読み込みエラーが発生しました。";
+            }
+        }
 
-</html>
+        // 予約実行
+        async function reserve(seniorName) {
+            if (!confirm(`${seniorName} 先輩に予約を入れますか？`)) return;
+            
+            const date = document.getElementById('dateInput').value;
+            const time = document.getElementById(`time-${seniorName}`).value;
+            const duration = document.getElementById(`duration-${seniorName}`).value;
+            const user = await liff.getProfile();
+
+            const res = await fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    seniorName, date, time, duration,
+                    juniorName: user.displayName,
+                    juniorId: user.userId
+                })
+            });
+            
+            if (res.ok) {
+                alert('予約が完了しました！LINEメッセージを確認してください。');
+                liff.closeWindow();
+            } else {
+                alert('予約に失敗しました。既に枠が埋まっている可能性があります。');
+            }
+        }
+
+        // 2年生用：ID登録
+        async function showAdmin() {
+            const res = await fetch(`${GAS_URL}?action=getSeniors`);
+            const seniors = await res.json();
+            let name = prompt("自分の名前を選んでください:\n" + seniors.map(
 
 
