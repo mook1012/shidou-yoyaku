@@ -10,7 +10,7 @@
         h3 { text-align: center; color: #1a73e8; }
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
         .info { font-size: 0.85em; color: #666; margin-bottom: 8px; font-weight: bold; }
-        select { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; background-color: #fff; }
+        select { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; background-color: #fff; -webkit-appearance: none; appearance: none; }
         button { width: 100%; padding: 14px; margin-top: 15px; border-radius: 8px; border: none; background: #00b900; color: white; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }
         button:active { background: #009e00; transform: scale(0.98); }
         #seniorList { margin-top: 20px; }
@@ -23,7 +23,9 @@
     
     <div class="card">
         <div class="info">① 日付を選択</div>
-        <select id="dateInput" onchange="fetchSchedule()"></select>
+        <select id="dateInput" onchange="fetchSchedule()">
+            <option value="">読み込み中...</option>
+        </select>
     </div>
 
     <div id="seniorList"></div>
@@ -31,13 +33,14 @@
     <div class="admin-link" onclick="showAdmin()">2年生の方（ID登録）はこちら</div>
 
     <script>
-        // --- 設定箇所 ---
         const LIFF_ID = "2008788046-laPjP0Ec"; 
         const GAS_URL = "https://script.google.com/macros/s/AKfycbygJQBKh1xIEQZUJ0CykesxFKLm9PYO3UG4U45f87W5h-qEj2HsqhE2QlP3dX-iFJHV/exec"; 
 
-        async function main() {
-            // 1. 日付プルダウンを生成（明日から30日分）
+        // --- 1. 日付プルダウンを即座に作成する関数 ---
+        function initDatePicker() {
             const dateInput = document.getElementById('dateInput');
+            dateInput.innerHTML = ""; // 「読み込み中」を消す
+            
             const today = new Date();
             const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -49,9 +52,7 @@
                 const m = ("0" + (targetDate.getMonth() + 1)).slice(-2);
                 const d = ("0" + targetDate.getDate()).slice(-2);
                 
-                // GAS送信用：YYYY-MM-DD
                 const val = `${y}-${m}-${d}`; 
-                // 表示用：M/D(曜日)
                 const label = `${targetDate.getMonth() + 1}/${targetDate.getDate()}(${dayNames[targetDate.getDay()]})`;
 
                 const opt = document.createElement('option');
@@ -59,25 +60,32 @@
                 opt.text = label;
                 dateInput.appendChild(opt);
             }
+        }
+
+        // --- 2. メイン処理 ---
+        async function main() {
+            // まず日付を出す（LIFFを待たない）
+            initDatePicker();
 
             try {
-                // 2. LIFFの初期化
                 await liff.init({ liffId: LIFF_ID });
                 if (!liff.isLoggedIn()) {
                     liff.login();
                 } else {
-                    // 初期表示（明日）のスケジュールを読み込む
+                    // ログイン済みなら、初期表示の日付でスケジュールを取得
                     fetchSchedule();
                 }
             } catch (error) {
-                console.error("LIFF初期化エラー:", error);
+                console.error("LIFF Init Error:", error);
+                // エラー時でもスケジュール取得だけは試みる
+                fetchSchedule();
             }
         }
 
         async function fetchSchedule() {
             const date = document.getElementById('dateInput').value;
             if (!date) return;
-            document.getElementById('seniorList').innerHTML = "読み込み中...";
+            document.getElementById('seniorList').innerHTML = "空き状況を確認中...";
             
             try {
                 const res = await fetch(`${GAS_URL}?action=getSchedule&date=${date}`);
@@ -102,9 +110,9 @@
                         <button onclick="reserve('${senior.name}')">この内容で予約する</button>
                     </div>`;
                 });
-                document.getElementById('seniorList').innerHTML = html || '<p style="text-align:center;">空いている先輩はいません</p>';
+                document.getElementById('seniorList').innerHTML = html || '<p style="text-align:center;">この日の空きはありません</p>';
             } catch (e) {
-                document.getElementById('seniorList').innerHTML = "読み込みエラーが発生しました。";
+                document.getElementById('seniorList').innerHTML = "空き状況を取得できませんでした。";
             }
         }
 
@@ -113,7 +121,14 @@
             const date = document.getElementById('dateInput').value;
             const time = document.getElementById(`time-${seniorName}`).value;
             const duration = document.getElementById(`duration-${seniorName}`).value;
-            const user = await liff.getProfile();
+            
+            let user;
+            try {
+                user = await liff.getProfile();
+            } catch(e) {
+                alert("ユーザー情報の取得に失敗しました。再ログインしてください。");
+                return;
+            }
 
             const res = await fetch(GAS_URL, {
                 method: 'POST',
@@ -124,10 +139,10 @@
             });
             
             if (res.ok) {
-                alert('予約完了！');
+                alert('予約完了！LINE通知を確認してください。');
                 liff.closeWindow();
             } else {
-                alert('予約に失敗しました。');
+                alert('予約に失敗しました。既に埋まっている可能性があります。');
             }
         }
 
@@ -140,4 +155,15 @@
                     const user = await liff.getProfile();
                     await fetch(GAS_URL, {
                         method: 'POST',
-                        body
+                        body: JSON.stringify({ action: 'registerID', name: name, userId: user.userId })
+                    });
+                    alert(name + " 先輩のIDを登録しました。");
+                }
+            } catch (e) { alert("ID登録中にエラーが発生しました。"); }
+        }
+
+        // 実行開始
+        main();
+    </script>
+</body>
+</html>
