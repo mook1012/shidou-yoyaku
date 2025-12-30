@@ -2,55 +2,245 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>弓道部 指導予約システム</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>岡山大学鹿田弓道部 指導予約</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
+        [v-cloak] { display: none; }
         .slot-free { @apply bg-white text-emerald-600 border-emerald-100; }
-        .slot-selected { @apply bg-emerald-500 text-white border-emerald-600 shadow-inner; }
-        .slot-busy { @apply bg-gray-100 text-gray-400 border-gray-100 cursor-not-allowed; }
-        .slot-mine { @apply bg-blue-100 text-blue-600 border-blue-200 font-bold; }
-        ::-webkit-scrollbar { height: 4px; }
-        ::-webkit-scrollbar-thumb { background: #10b981; borderRadius: 10px; }
+        .slot-selected { @apply bg-emerald-500 text-white border-emerald-600 shadow-inner scale-95; }
+        .slot-busy { @apply bg-slate-100 text-slate-300 border-slate-50 cursor-not-allowed; }
+        .slot-mine { @apply bg-blue-500 text-white border-blue-600 font-bold; }
+        .timeline-scroll::-webkit-scrollbar { height: 4px; }
+        .timeline-scroll::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans select-none">
-    <div id="app" class="max-w-4xl mx-auto min-h-screen pb-32">
-        <header class="bg-emerald-800 text-white p-4 sticky top-0 z-30 shadow-md">
-            <div class="flex justify-between items-center">
-                <h1 class="text-lg font-bold">🎯 弓道部 指導予約</h1>
-                <span class="text-xs bg-emerald-700 px-2 py-1 rounded">{{ userName }} さん</span>
+<body class="bg-slate-50 text-slate-900 font-sans">
+    <div id="app" v-cloak class="max-w-4xl mx-auto min-h-screen pb-32">
+        <header class="bg-[#005a3c] text-white p-4 sticky top-0 z-40 shadow-md">
+            <div class="flex justify-between items-center mb-3">
+                <h1 class="text-lg font-bold">🎯 指導予約システム</h1>
+                <div class="text-right">
+                    <p class="text-[10px] opacity-80">岡山大学鹿田弓道部</p>
+                    <p class="text-xs font-bold">{{ userName }} 様</p>
+                </div>
             </div>
-            <div class="mt-3 flex gap-2">
+            <div class="flex gap-2">
                 <input type="date" v-model="selectedDate" @change="loadData" class="flex-1 p-2 rounded text-black text-sm outline-none">
-                <button @click="sortByName = !sortByName" class="bg-emerald-600 px-3 py-1 rounded text-xs">
-                    {{ sortByName ? '名前順済' : '名前でソート' }}
+                <button @click="sortByName = !sortByName" class="bg-emerald-600 px-4 py-2 rounded text-xs font-bold active:bg-emerald-700 transition">
+                    {{ sortByName ? '名前順：ON' : '名前順：OFF' }}
                 </button>
             </div>
         </header>
 
         <main class="p-2">
-            <div v-if="loading" class="text-center py-20 text-emerald-600 animate-pulse font-bold">データを読み込み中...</div>
-            
+            <div v-if="loading" class="flex flex-col items-center justify-center py-20">
+                <div class="animate-spin h-10 w-10 border-4 border-emerald-500 border-t-transparent rounded-full mb-4"></div>
+                <p class="text-emerald-600 font-bold">稽古状況を確認中...</p>
+            </div>
+
             <div v-else class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="overflow-x-auto" id="timeline-container">
-                    <div class="flex bg-slate-50 border-b border-slate-200">
-                        <div class="w-20 flex-shrink-0 p-3 border-r bg-slate-100 sticky left-0 z-20 font-bold text-xs text-slate-500">指導者</div>
-                        <div v-for="t in timeSlots" :key="t" class="w-14 flex-shrink-0 py-2 text-[10px] text-center border-r border-slate-100 text-slate-400">
+                <div class="overflow-x-auto timeline-scroll">
+                    <div class="flex bg-slate-100 border-b border-slate-200">
+                        <div class="w-20 flex-shrink-0 p-3 border-r bg-slate-200 sticky left-0 z-20 font-bold text-[10px] text-slate-600">指導者</div>
+                        <div v-for="t in timeSlots" :key="t" class="w-14 flex-shrink-0 py-2 text-[10px] text-center border-r border-slate-200 text-slate-500 font-medium">
                             {{ t }}
                         </div>
                     </div>
 
-                    <div v-for="teacher in sortedTeachers" :key="teacher.name" class="flex border-b border-slate-100 last:border-0 hover:bg-emerald-50/30 transition">
-                        <div class="w-20 flex-shrink-0 p-3 border-r bg-white sticky left-0 z-10 font-bold text-sm shadow-[2px_0_5px_rgba(0,0,0,0.03)]">
+                    <div v-for="teacher in sortedTeachers" :key="teacher.name" class="flex border-b border-slate-100 last:border-0">
+                        <div class="w-20 flex-shrink-0 p-3 border-r bg-white sticky left-0 z-10 font-bold text-sm shadow-[2px_0_5px_rgba(0,0,0,0.02)] flex items-center">
                             {{ teacher.name }}
                         </div>
                         <div class="flex">
                             <div v-for="(status, index) in teacher.slots" 
                                  :key="index"
-                                 @click="onSlotClick(teacher, index)"
+                                 @click="handleSlotClick(teacher, index)"
                                  :class="getSlotClass(teacher.name, index, status)"
-                                 class="w-14 h-14 flex-shrink-0 border-r border-slate-50 flex flex-col items-center justify-center text-[10px] cursor-pointer transition-all relative">
-                                <span v-if="status === 'o'">空き</span>
+                                 class="w-14 h-16 flex-shrink-0 border-r border-slate-100 flex items-center justify-center text-[10px] cursor-pointer transition-all relative">
+                                <span v-if="status === 'o'" class="opacity-60">空き</span>
+                                <span v-else-if="status === 'mine'" class="text-[8px] leading-tight text-center">自分の<br>予約</span>
+                                <span v-else class="text-slate-200">ー</span>
+                                
+                                <div v-if="isSelected(teacher.name, index)" class="absolute inset-0 bg-emerald-500 text-white flex items-center justify-center font-bold shadow-inner">
+                                    選択
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <p v-if="!loading && sortedTeachers.length === 0" class="text-center py-10 text-slate-400">
+                この日の指導枠はまだ設定されていません。
+            </p>
+        </main>
+
+        <div v-if="selection.start !== null" class="fixed bottom-0 left-0 right-0 z-50 p-4 animate-slide-up">
+            <div class="bg-white rounded-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] border-t-4 border-emerald-500 p-5 max-w-md mx-auto">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h2 class="text-xl font-black text-slate-800">{{ selection.teacherName }} 先輩</h2>
+                        <p class="text-emerald-600 font-bold">
+                            {{ formatTime(selection.start) }} 〜 {{ formatTime(selection.end + 1) }}
+                            <span class="text-xs ml-2 text-slate-400">({{ (selection.end - selection.start + 1) * 30 }}分間)</span>
+                        </p>
+                    </div>
+                    <button @click="resetSelection" class="bg-slate-100 text-slate-400 p-2 rounded-full">✕</button>
+                </div>
+                <button @click="submitBooking" :disabled="submitting" class="w-full bg-emerald-700 text-white py-4 rounded-xl font-black text-lg shadow-lg active:scale-95 transition disabled:opacity-50">
+                    {{ submitting ? '処理中...' : '予約を確定する' }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbwY_M1JCvUOTz1ArJWCPcGpnkOOlOLRIZ1jZiT2OG-DlE8uRAZG2aBTj13YCxojqN0Y/exec";
+
+        const { createApp, ref, computed, onMounted } = Vue;
+        createApp({
+            setup() {
+                const userName = ref("読込中...");
+                const userLineId = ref("");
+                const selectedDate = ref(new Date().toISOString().split('T')[0]);
+                const timeSlots = ["08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30"];
+                const teachers = ref([]);
+                const loading = ref(true);
+                const submitting = ref(false);
+                const sortByName = ref(false);
+                const selection = ref({ teacherName: null, start: null, end: null });
+
+                const loadData = async () => {
+                    loading.value = true;
+                    try {
+                        const response = await fetch(`${GAS_URL}?action=getSchedule&date=${selectedDate.value}&userId=${userLineId.value}`);
+                        teachers.value = await response.json();
+                    } catch (e) {
+                        alert("データ取得に失敗しました。GASの公開設定を確認してください。");
+                    }
+                    loading.value = false;
+                };
+
+                const handleSlotClick = (teacher, index) => {
+                    const status = teacher.slots[index];
+                    
+                    // キャンセル処理
+                    if (status === 'mine') {
+                        if(confirm(`${teacher.name}先輩のこの枠の予約をキャンセルしますか？`)) {
+                            submitCancel(teacher.name, index);
+                        }
+                        return;
+                    }
+                    
+                    if (status !== 'o') return;
+
+                    // 新規選択
+                    if (selection.value.teacherName !== teacher.name) {
+                        selection.value = { teacherName: teacher.name, start: index, end: index };
+                    } else {
+                        // 連続枠選択（最大4枠＝120分）
+                        if (index < selection.value.start) {
+                            selection.value.start = index;
+                        } else {
+                            const diff = index - selection.value.start;
+                            if (diff >= 4) {
+                                alert("最大2時間（4枠）まで連続予約可能です。");
+                                return;
+                            }
+                            // 途中に空き以外の枠がないかチェック
+                            for(let i=selection.value.start; i<=index; i++) {
+                                if(teacher.slots[i] !== 'o') {
+                                    alert("連続した空き枠のみ選択可能です。");
+                                    return;
+                                }
+                            }
+                            selection.value.end = index;
+                        }
+                    }
+                };
+
+                const isSelected = (tName, idx) => {
+                    return selection.value.teacherName === tName && idx >= selection.value.start && idx <= selection.value.end;
+                };
+
+                const getSlotClass = (tName, idx, status) => {
+                    if (status === 'mine') return 'slot-mine';
+                    if (status === 'o') return 'slot-free';
+                    return 'slot-busy';
+                };
+
+                const sortedTeachers = computed(() => {
+                    let list = [...teachers.value];
+                    if (sortByName.value) list.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+                    return list;
+                });
+
+                const formatTime = (idx) => timeSlots[idx] || "22:00";
+                const resetSelection = () => selection.value = { teacherName: null, start: null, end: null };
+
+                const submitBooking = async () => {
+                    submitting.value = true;
+                    try {
+                        const res = await fetch(GAS_URL, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                action: 'reserve',
+                                date: selectedDate.value,
+                                teacherName: selection.value.teacherName,
+                                startIdx: selection.value.start,
+                                endIdx: selection.value.end,
+                                userId: userLineId.value,
+                                userName: userName.value
+                            })
+                        });
+                        alert("予約が完了しました！先輩に通知を送りました。");
+                        resetSelection();
+                        loadData();
+                    } catch (e) { alert("予約に失敗しました。"); }
+                    submitting.value = false;
+                };
+
+                const submitCancel = async (tName, idx) => {
+                    loading.value = true;
+                    try {
+                        await fetch(GAS_URL, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                action: 'cancel',
+                                date: selectedDate.value,
+                                teacherName: tName,
+                                slotIdx: idx,
+                                userId: userLineId.value
+                            })
+                        });
+                        alert("キャンセルが完了しました。");
+                        loadData();
+                    } catch (e) { alert("キャンセルに失敗しました。"); }
+                    loading.value = false;
+                };
+
+                onMounted(async () => {
+                    try {
+                        await liff.init({ liffId: "2008788046-laPjP0Ec" }); // ここを必ず書き換える
+                        if (!liff.isLoggedIn()) {
+                            liff.login();
+                        } else {
+                            const profile = await liff.getProfile();
+                            userName.value = profile.displayName;
+                            userLineId.value = profile.userId;
+                            loadData();
+                        }
+                    } catch (err) {
+                        console.error("LIFF Init Error", err);
+                    }
+                });
+
+                return { userName, selectedDate, timeSlots, sortedTeachers, loading, handleSlotClick, getSlotClass, isSelected, selection, resetSelection, formatTime, submitBooking, submitting, sortByName, loadData };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
