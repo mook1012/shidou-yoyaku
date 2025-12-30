@@ -78,7 +78,7 @@
             </p>
         </main>
 
-        <div v-if="selection.start !== null" class="fixed bottom-0 left-0 right-0 z-50 p-4 animate-slide-up">
+        <div v-if="selection.start !== null" class="fixed bottom-0 left-0 right-0 z-50 p-4">
             <div class="bg-white rounded-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] border-t-4 border-emerald-500 p-5 max-w-md mx-auto">
                 <div class="flex justify-between items-start mb-4">
                     <div>
@@ -98,6 +98,7 @@
     </div>
 
     <script>
+        // --- ユーザー提供のGAS URLを設定 ---
         const GAS_URL = "https://script.google.com/macros/s/AKfycbwY_M1JCvUOTz1ArJWCPcGpnkOOlOLRIZ1jZiT2OG-DlE8uRAZG2aBTj13YCxojqN0Y/exec";
 
         const { createApp, ref, computed, onMounted } = Vue;
@@ -105,7 +106,23 @@
             setup() {
                 const userName = ref("読込中...");
                 const userLineId = ref("");
-                const selectedDate = ref(new Date().toISOString().split('T')[0]);
+
+                // デフォルトの日付設定ロジック
+                const getInitialDate = () => {
+                    const targetDate = new Date('2026-04-02T00:00:00');
+                    const now = new Date();
+                    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+                    if (today < targetDate) {
+                        return "2026-04-02";
+                    } else {
+                        const tomorrow = new Date(today);
+                        tomorrow.setDate(today.getDate() + 1);
+                        return tomorrow.toISOString().split('T')[0];
+                    }
+                };
+
+                const selectedDate = ref(getInitialDate());
                 const timeSlots = ["08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30"];
                 const teachers = ref([]);
                 const loading = ref(true);
@@ -119,72 +136,51 @@
                         const response = await fetch(`${GAS_URL}?action=getSchedule&date=${selectedDate.value}&userId=${userLineId.value}`);
                         teachers.value = await response.json();
                     } catch (e) {
-                        alert("データ取得に失敗しました。GASの公開設定を確認してください。");
+                        console.error("Data Fetch Error:", e);
                     }
                     loading.value = false;
                 };
 
                 const handleSlotClick = (teacher, index) => {
                     const status = teacher.slots[index];
-                    
-                    // キャンセル処理
                     if (status === 'mine') {
-                        if(confirm(`${teacher.name}先輩のこの枠の予約をキャンセルしますか？`)) {
-                            submitCancel(teacher.name, index);
-                        }
+                        if(confirm(`${teacher.name}先輩の予約をキャンセルしますか？`)) submitCancel(teacher.name, index);
                         return;
                     }
-                    
                     if (status !== 'o') return;
 
-                    // 新規選択
                     if (selection.value.teacherName !== teacher.name) {
                         selection.value = { teacherName: teacher.name, start: index, end: index };
                     } else {
-                        // 連続枠選択（最大4枠＝120分）
                         if (index < selection.value.start) {
                             selection.value.start = index;
                         } else {
-                            const diff = index - selection.value.start;
-                            if (diff >= 4) {
-                                alert("最大2時間（4枠）まで連続予約可能です。");
+                            if (index - selection.value.start >= 4) {
+                                alert("最大2時間（4枠）までです。");
                                 return;
                             }
-                            // 途中に空き以外の枠がないかチェック
                             for(let i=selection.value.start; i<=index; i++) {
-                                if(teacher.slots[i] !== 'o') {
-                                    alert("連続した空き枠のみ選択可能です。");
-                                    return;
-                                }
+                                if(teacher.slots[i] !== 'o') { alert("連続した空き枠のみ選択可能です。"); return; }
                             }
                             selection.value.end = index;
                         }
                     }
                 };
 
-                const isSelected = (tName, idx) => {
-                    return selection.value.teacherName === tName && idx >= selection.value.start && idx <= selection.value.end;
-                };
-
-                const getSlotClass = (tName, idx, status) => {
-                    if (status === 'mine') return 'slot-mine';
-                    if (status === 'o') return 'slot-free';
-                    return 'slot-busy';
-                };
-
+                const isSelected = (tName, idx) => selection.value.teacherName === tName && idx >= selection.value.start && idx <= selection.value.end;
+                const getSlotClass = (tName, idx, status) => status === 'mine' ? 'slot-mine' : (status === 'o' ? 'slot-free' : 'slot-busy');
                 const sortedTeachers = computed(() => {
                     let list = [...teachers.value];
                     if (sortByName.value) list.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
                     return list;
                 });
-
                 const formatTime = (idx) => timeSlots[idx] || "22:00";
                 const resetSelection = () => selection.value = { teacherName: null, start: null, end: null };
 
                 const submitBooking = async () => {
                     submitting.value = true;
                     try {
-                        const res = await fetch(GAS_URL, {
+                        await fetch(GAS_URL, {
                             method: 'POST',
                             body: JSON.stringify({
                                 action: 'reserve',
@@ -196,7 +192,7 @@
                                 userName: userName.value
                             })
                         });
-                        alert("予約が完了しました！先輩に通知を送りました。");
+                        alert("予約完了！🎯");
                         resetSelection();
                         loadData();
                     } catch (e) { alert("予約に失敗しました。"); }
@@ -208,23 +204,19 @@
                     try {
                         await fetch(GAS_URL, {
                             method: 'POST',
-                            body: JSON.stringify({
-                                action: 'cancel',
-                                date: selectedDate.value,
-                                teacherName: tName,
-                                slotIdx: idx,
-                                userId: userLineId.value
-                            })
+                            body: JSON.stringify({ action: 'cancel', date: selectedDate.value, teacherName: tName, slotIdx: idx, userId: userLineId.value })
                         });
-                        alert("キャンセルが完了しました。");
+                        alert("キャンセル完了。");
                         loadData();
-                    } catch (e) { alert("キャンセルに失敗しました。"); }
+                    } catch (e) { alert("失敗しました。"); }
                     loading.value = false;
                 };
 
                 onMounted(async () => {
                     try {
-                        await liff.init({ liffId: "2008788046-laPjP0Ec" }); // ここを必ず書き換える
+                        // --- ユーザー提供のLIFF IDを設定 ---
+                        await liff.init({ liffId: "2008788046-laPjP0Ec" });
+                        
                         if (!liff.isLoggedIn()) {
                             liff.login();
                         } else {
@@ -234,7 +226,8 @@
                             loadData();
                         }
                     } catch (err) {
-                        console.error("LIFF Init Error", err);
+                        console.error("LIFF Init Error:", err);
+                        alert("LIFFの初期化に失敗しました。ID設定を確認してください。");
                     }
                 });
 
