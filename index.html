@@ -178,26 +178,32 @@
                 const resetSelection = () => selection.value = { teacherName: null, start: null, end: null };
 
                 const submitBooking = async () => {
-                    submitting.value = true;
-                    try {
-                        await fetch(GAS_URL, {
-                            method: 'POST',
-                            body: JSON.stringify({
-                                action: 'reserve',
-                                date: selectedDate.value,
-                                teacherName: selection.value.teacherName,
-                                startIdx: selection.value.start,
-                                endIdx: selection.value.end,
-                                userId: userLineId.value,
-                                userName: userName.value
-                            })
-                        });
-                        alert("予約完了！🎯");
-                        resetSelection();
-                        loadData();
-                    } catch (e) { alert("予約に失敗しました。"); }
-                    submitting.value = false;
-                };
+    submitting.value = true;
+    try {
+        const res = await fetch(GAS_URL, {
+            method: 'POST',
+            mode: 'no-cors', // これを追加：GAS特有の通信エラー（CORS）を回避
+            body: JSON.stringify({
+                action: 'reserve',
+                date: selectedDate.value,
+                teacherName: selection.value.teacherName,
+                startIdx: selection.value.start,
+                endIdx: selection.value.end,
+                userId: userLineId.value,
+                userName: userName.value
+            })
+        });
+        
+        // mode: 'no-cors' の場合、レスポンスの中身は見られませんが、
+        // ここまで来れば送信自体は成功しています。
+        alert("予約リクエストを送信しました！🎯\n反映まで数秒かかる場合があります。");
+        resetSelection();
+        setTimeout(loadData, 1500); // 反映を待ってから再読み込み
+    } catch (e) {
+        alert("通信に失敗しました。電波の良い場所で再度お試しください。");
+    }
+    submitting.value = false;
+};
 
                 const submitCancel = async (tName, idx) => {
                     loading.value = true;
@@ -237,3 +243,4 @@
     </script>
 </body>
 </html>
+
