@@ -18,7 +18,7 @@ body { font-family:sans-serif; background:#f4f7f9; margin:0; padding:15px; }
   background:#00b900;color:#fff;
   display:flex;align-items:center;justify-content:center;
   font-size:12px;font-weight:bold;
-  margin-right:6px;cursor:pointer;
+  cursor:pointer;
 }
 .list { display:flex; flex-wrap:wrap; gap:6px; }
 .no { text-align:center; color:#999; padding:40px; }
@@ -45,13 +45,15 @@ button { padding:10px; border:none; border-radius:8px; }
 const LIFF_ID = "2008788046-laPjP0Ec";
 const GAS_URL = "https://script.google.com/macros/s/AKfycbz7UdnVyXvsFeZhwURBnHNFETUFrHElmFPBcQUwEOEqQ6mRUS6ooXKd4krlho7iFcKe/exec";
 
-let scheduleData = [];
-let myUser = {};
+const TIMES = [
+ "8.30","9.00","9.30","10.00","10.30","11.00","11.30",
+ "12.00","12.30","13.00","13.30","14.00","14.30","15.00",
+ "15.30","16.00","16.30","17.00","17.30","18.00","18.30",
+ "19.00","19.30","20.00","20.30","21.00","21.30"
+];
 
-const TIMES = ["8:30","9:00","9:30","10:00","10:30","11:00","11:30",
-"12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30",
-"16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30",
-"20:00","20:30","21:00","21:30"];
+let myUser = {};
+let scheduleData = [];
 
 async function main(){
   initDates();
@@ -76,7 +78,7 @@ function initDates(){
 async function fetchSchedule(){
   const date=dateInput.value;
   schedule.innerHTML="<div class='no'>読み込み中…</div>";
-  const res=await fetch(`${GAS_URL}?action=getSchedule&date=${date}&uid=${myUser.userId}`);
+  const res=await fetch(`${GAS_URL}?date=${date}&uid=${myUser.userId}`);
   const json=await res.json();
   scheduleData=json.schedule;
   render(json);
@@ -86,9 +88,8 @@ function render(json){
   schedule.innerHTML="";
   myReserve.innerHTML="";
 
-  // ---- 連続枠非表示 ----
-  const hidden=new Set();
-  json.bookedSlots.forEach(t=>hidden.add(t));
+  // 連続枠非表示
+  const hidden=new Set(json.bookedSlots || []);
 
   TIMES.forEach(t=>{
     if(hidden.has(t)) return;
@@ -110,17 +111,17 @@ function render(json){
       a.onclick=()=>reserve(s.name,t);
       list.appendChild(a);
     });
+
     div.appendChild(list);
     schedule.appendChild(div);
   });
 
   if(!schedule.innerHTML) schedule.innerHTML="<div class='no'>空きなし</div>";
 
-  // ---- 自分の予約 ----
   if(json.myReserve){
     myReserve.innerHTML=`
       ${json.myReserve.date} ${json.myReserve.time}〜 ${json.myReserve.senior}<br>
-      <button class="cancel" onclick="cancel('${json.myReserve.reserveId}')">キャンセル</button>
+      <button class="cancel" onclick="cancelReserve('${json.myReserve.id}')">キャンセル</button>
     `;
   } else {
     myReserve.textContent="予約はありません";
@@ -128,12 +129,12 @@ function render(json){
 }
 
 async function reserve(name,time){
-  const d=prompt("時間(1〜4枠)");
+  const d=prompt("時間（1〜4枠）");
   if(!d) return;
+
   const res=await fetch(GAS_URL,{
     method:"POST",
     body:JSON.stringify({
-      action:"reserve",
       seniorName:name,
       date:dateInput.value,
       time,
@@ -143,11 +144,15 @@ async function reserve(name,time){
     })
   });
   const j=await res.json();
-  if(j.status==="OK"){ alert("予約完了"); fetchSchedule(); }
-  else alert("既に埋まっています");
+  if(j.status==="OK"){
+    alert("予約完了");
+    fetchSchedule();
+  } else {
+    alert(j.message || "予約失敗");
+  }
 }
 
-async function cancel(id){
+async function cancelReserve(id){
   if(!confirm("キャンセルしますか？")) return;
   await fetch(GAS_URL,{
     method:"POST",
@@ -161,4 +166,3 @@ main();
 </script>
 </body>
 </html>
-
