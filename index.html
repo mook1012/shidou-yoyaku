@@ -1,168 +1,127 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>指導予約</title>
-<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-
-<style>
-body { font-family:sans-serif; background:#f4f7f9; margin:0; padding:15px; }
-.header { background:#fff; padding:15px; text-align:center; border-radius:0 0 15px 15px; margin:-15px -15px 20px; }
-.card { background:#fff; padding:15px; border-radius:12px; margin-bottom:15px; }
-.grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
-.tile { background:#fff; padding:12px; border-radius:10px; border:1px solid #eee; }
-.time { font-weight:bold; color:#1a73e8; margin-bottom:6px; }
-.avatar {
-  width:34px;height:34px;border-radius:50%;
-  background:#00b900;color:#fff;
-  display:flex;align-items:center;justify-content:center;
-  font-size:12px;font-weight:bold;
-  cursor:pointer;
-}
-.list { display:flex; flex-wrap:wrap; gap:6px; }
-.no { text-align:center; color:#999; padding:40px; }
-button { padding:10px; border:none; border-radius:8px; }
-.cancel { background:#ff4d4f; color:white; width:100%; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>指導予約システム</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #f4f7f9; margin: 0; padding: 15px; color: #333; }
+        .header { background: #fff; padding: 15px; text-align: center; border-radius: 0 0 15px 15px; margin: -15px -15px 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .card { background: #fff; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e0e0e0; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .tile { background: #fff; padding: 12px; border-radius: 10px; border: 1px solid #eee; text-align: center; }
+        .time { font-weight: bold; color: #1a73e8; margin-bottom: 8px; font-size: 1.1em; }
+        .avatar {
+            width: 40px; height: 40px; border-radius: 50%;
+            background: #00b900; color: #fff;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: bold; cursor: pointer; margin: 2px;
+        }
+        .list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+        .no { text-align: center; color: #999; padding: 40px; grid-column: span 2; }
+        button { padding: 10px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .cancel { background: #ff4d4f; color: white; width: 100%; margin-top: 10px; }
+        select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; }
+    </style>
 </head>
-
 <body>
-<div class="header"><h3>指導予約</h3></div>
+    <div class="header"><h3>指導予約</h3></div>
 
-<div class="card">
-<select id="dateInput" onchange="fetchSchedule()"></select>
-</div>
+    <div class="card">
+        <label style="font-size: 0.8em; color: #666;">予約日を選択</label>
+        <select id="dateInput" onchange="fetchSchedule()"></select>
+    </div>
 
-<div id="schedule" class="grid"></div>
+    <div id="schedule" class="grid"></div>
 
-<div class="card">
-<h4>あなたの予約</h4>
-<div id="myReserve"></div>
-</div>
+    <div class="card">
+        <h4>現在の予約状況</h4>
+        <div id="myReserve"></div>
+    </div>
 
 <script>
-const LIFF_ID = "2008788046-laPjP0Ec";
-const GAS_URL = "https://script.google.com/macros/s/AKfycbz7UdnVyXvsFeZhwURBnHNFETUFrHElmFPBcQUwEOEqQ6mRUS6ooXKd4krlho7iFcKe/exec";
+// --- 設定 (各自書き換え) ---
+const LIFF_ID = "2008788046-laPjP0Ec"; 
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxfqOck3ufGkZmhKWVTvPQHmv3jo196ga00ODZBQsfBaVl13WfvE-Zf6ZPKbU2qk_Ht/exec";
 
+// スプレッドシートの1行目と完全に一致させる
 const TIMES = [
- "8.30","9.00","9.30","10.00","10.30","11.00","11.30",
- "12.00","12.30","13.00","13.30","14.00","14.30","15.00",
- "15.30","16.00","16.30","17.00","17.30","18.00","18.30",
- "19.00","19.30","20.00","20.30","21.00","21.30"
+    "8:00","8:30","9:00","9:30","10:00","10:30","11:00","11:30",
+    "12:00","12:30","13:00","13:30","14:00","14:30","15:00",
+    "15:30","16:00","16:30","17:00","17:30","18:00","18:30",
+    "19:00","19:30","20:00","20:30","21:00","21:30","22:00"
 ];
 
 let myUser = {};
-let scheduleData = [];
 
 async function main(){
-  initDates();
-  await liff.init({liffId:LIFF_ID});
-  if(!liff.isLoggedIn()) liff.login();
-  myUser = await liff.getProfile();
-  fetchSchedule();
+    initDates();
+    try {
+        await liff.init({ liffId: LIFF_ID });
+        if(!liff.isLoggedIn()) {
+            liff.login();
+            return;
+        }
+        myUser = await liff.getProfile();
+        fetchSchedule();
+    } catch (err) {
+        console.error("LIFF Init Error", err);
+    }
 }
 
 function initDates(){
-  const sel=document.getElementById("dateInput");
-  let d=new Date(2026,3,2), end=new Date(2026,6,31);
-  while(d<=end){
-    const v=`${d.getFullYear()}-${("0"+(d.getMonth()+1)).slice(-2)}-${("0"+d.getDate()).slice(-2)}`;
-    const o=document.createElement("option");
-    o.value=v; o.text=`${d.getMonth()+1}/${d.getDate()}`;
-    sel.appendChild(o);
-    d.setDate(d.getDate()+1);
-  }
+    const sel = document.getElementById("dateInput");
+    let d = new Date(2026, 3, 2); // 4月2日開始
+    let end = new Date(2026, 6, 31);
+    while(d <= end){
+        const v = `${d.getFullYear()}-${("0"+(d.getMonth()+1)).slice(-2)}-${("0"+d.getDate()).slice(-2)}`;
+        const o = document.createElement("option");
+        o.value = v; 
+        o.text = `${d.getMonth()+1}/${d.getDate()} (${["日","月","火","水","木","金","土"][d.getDay()]})`;
+        sel.appendChild(o);
+        d.setDate(d.getDate() + 1);
+    }
 }
 
 async function fetchSchedule(){
-  const date=dateInput.value;
-  schedule.innerHTML="<div class='no'>読み込み中…</div>";
-  const res=await fetch(`${GAS_URL}?date=${date}&uid=${myUser.userId}`);
-  const json=await res.json();
-  scheduleData=json.schedule;
-  render(json);
+    const date = document.getElementById("dateInput").value;
+    const scheduleEl = document.getElementById("schedule");
+    scheduleEl.innerHTML = "<div class='no'>読み込み中...</div>";
+    
+    const res = await fetch(`${GAS_URL}?date=${date}&uid=${myUser.userId}`);
+    const json = await res.json();
+    render(json);
 }
 
 function render(json){
-  schedule.innerHTML="";
-  myReserve.innerHTML="";
+    const scheduleEl = document.getElementById("schedule");
+    const myResEl = document.getElementById("myReserve");
+    scheduleEl.innerHTML = "";
 
-  // 連続枠非表示
-  const hidden=new Set(json.bookedSlots || []);
+    TIMES.forEach(t => {
+        const avail = json.schedule.filter(s => s.slots.includes(t));
+        if(avail.length === 0) return;
 
-  TIMES.forEach(t=>{
-    if(hidden.has(t)) return;
+        const div = document.createElement("div");
+        div.className = "tile";
+        div.innerHTML = `<div class="time">${t}</div>`;
+        const list = document.createElement("div");
+        list.className = "list";
 
-    const avail=scheduleData.filter(s=>s.slots.includes(t));
-    if(avail.length===0) return;
-
-    const div=document.createElement("div");
-    div.className="tile";
-    div.innerHTML=`<div class="time">${t}</div>`;
-    const list=document.createElement("div");
-    list.className="list";
-
-    avail.forEach(s=>{
-      const a=document.createElement("div");
-      a.className="avatar";
-      a.textContent=s.name[0];
-      a.title=s.name;
-      a.onclick=()=>reserve(s.name,t);
-      list.appendChild(a);
+        avail.forEach(s => {
+            const a = document.createElement("div");
+            a.className = "avatar";
+            a.textContent = s.name[0];
+            a.title = s.name;
+            a.onclick = () => reserve(s.name, t);
+            list.appendChild(a);
+        });
+        div.appendChild(list);
+        scheduleEl.appendChild(div);
     });
 
-    div.appendChild(list);
-    schedule.appendChild(div);
-  });
+    if(!scheduleEl.innerHTML) scheduleEl.innerHTML = "<div class='no'>予約可能な枠はありません</div>";
 
-  if(!schedule.innerHTML) schedule.innerHTML="<div class='no'>空きなし</div>";
-
-  if(json.myReserve){
-    myReserve.innerHTML=`
-      ${json.myReserve.date} ${json.myReserve.time}〜 ${json.myReserve.senior}<br>
-      <button class="cancel" onclick="cancelReserve('${json.myReserve.id}')">キャンセル</button>
-    `;
-  } else {
-    myReserve.textContent="予約はありません";
-  }
-}
-
-async function reserve(name,time){
-  const d=prompt("時間（1〜4枠）");
-  if(!d) return;
-
-  const res=await fetch(GAS_URL,{
-    method:"POST",
-    body:JSON.stringify({
-      seniorName:name,
-      date:dateInput.value,
-      time,
-      duration:d,
-      juniorName:myUser.displayName,
-      juniorId:myUser.userId
-    })
-  });
-  const j=await res.json();
-  if(j.status==="OK"){
-    alert("予約完了");
-    fetchSchedule();
-  } else {
-    alert(j.message || "予約失敗");
-  }
-}
-
-async function cancelReserve(id){
-  if(!confirm("キャンセルしますか？")) return;
-  await fetch(GAS_URL,{
-    method:"POST",
-    body:JSON.stringify({ action:"cancel", reserveId:id })
-  });
-  alert("キャンセルしました");
-  fetchSchedule();
-}
-
-main();
-</script>
-</body>
-</html>
+    if(json.myReserve){
+        myResEl.innerHTML
