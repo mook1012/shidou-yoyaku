@@ -6,101 +6,163 @@
     <title>指導予約システム</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; padding: 20px; background: #f0f2f5; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; }
-        .info { font-size: 0.8em; color: #666; font-weight: bold; margin-bottom: 5px; }
-        select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; margin-bottom: 10px; }
-        button { width: 100%; padding: 14px; border-radius: 8px; border: none; background: #00b900; color: white; font-weight: bold; }
-        .senior-name { font-size: 1.1em; color: #1a73e8; display: block; margin-bottom: 10px; }
+        body { font-family: -apple-system, sans-serif; padding: 15px; background: #f4f7f9; color: #333; }
+        h3 { text-align: center; font-size: 1.2em; color: #333; margin-bottom: 20px; }
+        .filter-section { background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .label { font-size: 0.8em; font-weight: bold; color: #888; margin-bottom: 5px; }
+        select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; background: #fff; margin-bottom: 10px; }
+        
+        /* タイル（グリッド）表示 */
+        .time-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .time-card { background: white; padding: 12px; border-radius: 10px; border: 1px solid #eee; position: relative; min-height: 80px; transition: 0.2s; }
+        .time-label { font-weight: bold; font-size: 1.1em; color: #1a73e8; margin-bottom: 8px; display: block; }
+        .slot-info { font-size: 0.7em; color: #999; margin-bottom: 8px; }
+
+        /* 先輩アイコン */
+        .icon-container { display: flex; flex-wrap: wrap; gap: 5px; }
+        .senior-icon { 
+            width: 32px; height: 32px; border-radius: 50%; 
+            background: #00b900; color: white; 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 0.8em; font-weight: bold; cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .senior-icon:active { transform: scale(0.9); }
+        
+        .no-data { grid-column: span 2; text-align: center; padding: 40px; color: #999; }
+        .admin-link { text-align: center; margin-top: 30px; font-size: 0.8em; color: #bbb; text-decoration: underline; }
     </style>
 </head>
 <body>
-    <h3>指導予約</h3>
+    <h3>📅 指導予約</h3>
     
-    <div class="card">
-        <div class="info">① 日付を選択</div>
+    <div class="filter-section">
+        <div class="label">日付を選択</div>
         <select id="dateInput" onchange="fetchSchedule()"></select>
         
-        <div class="info">② 開始時間を選択</div>
-        <select id="timeInput" onchange="filterSeniors()">
-            <option value="17:00">17:00</option><option value="17:30">17:30</option>
-            <option value="18:00">18:00</option><option value="18:30">18:30</option>
-            <option value="19:00">19:00</option><option value="19:30">19:30</option>
-            <option value="20:00">20:00</option><option value="20:30">20:30</option>
-            <option value="21:00">21:00</option><option value="21:30">21:30</option>
+        <div class="label">先輩で絞り込む（ソート）</div>
+        <select id="seniorFilter" onchange="renderGrid()">
+            <option value="all">全員表示</option>
         </select>
     </div>
 
-    <div id="seniorList"></div>
+    <div id="timeGrid" class="time-grid">
+        </div>
+
+    <div class="admin-link" onclick="showAdmin()">2年生ID登録</div>
 
     <script>
-        const LIFF_ID = "2008788046-laPjP0Ec"; 
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbygJQBKh1xIEQZUJ0CykesxFKLm9PYO3UG4U45f87W5h-qEj2HsqhE2QlP3dX-iFJHV/exec"; 
-        let allSeniorsData = []; // 取得したデータを一時保存
+        const LIFF_ID = "2008788046-laPjP0Ec";
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbygJQBKh1xIEQZUJ0CykesxFKLm9PYO3UG4U45f87W5h-qEj2HsqhE2QlP3dX-iFJHV/exec";
+        
+        let allSeniors = []; // スケジュール生データ
+        const TIMES = ["17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30"];
 
         async function main() {
             initDatePicker();
             await liff.init({ liffId: LIFF_ID });
-            if (!liff.isLoggedIn()) { liff.login(); } else { fetchSchedule(); }
+            if (!liff.isLoggedIn()) liff.login();
+            
+            // 先輩名簿を取得してフィルタを生成
+            const res = await fetch(`${GAS_URL}?action=getSeniors`);
+            const seniors = await res.json();
+            const filter = document.getElementById('seniorFilter');
+            seniors.forEach(s => {
+                const opt = document.createElement('option'); opt.value = s[0]; opt.text = s[0];
+                filter.appendChild(opt);
+            });
+            
+            fetchSchedule();
         }
 
         function initDatePicker() {
             const dateInput = document.getElementById('dateInput');
-            const now = new Date();
-            let start = new Date(2026, 3, 2); 
-            const end = new Date(2026, 6, 31);
-            const tomorrow = new Date(); tomorrow.setDate(now.getDate() + 1);
-            if (tomorrow > start) start = tomorrow;
+            let d = new Date(2026, 3, 2); const end = new Date(2026, 6, 31);
+            const now = new Date(); const tomorrow = new Date(); tomorrow.setDate(now.getDate() + 1);
+            if (tomorrow > d) d = tomorrow;
             const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
-
-            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            while(d <= end) {
                 const opt = document.createElement('option');
                 opt.value = `${d.getFullYear()}-${("0"+(d.getMonth()+1)).slice(-2)}-${("0"+d.getDate()).slice(-2)}`;
                 opt.text = `${d.getMonth()+1}/${d.getDate()}(${dayNames[d.getDay()]})`;
-                dateInput.appendChild(opt);
+                dateInput.appendChild(opt); d.setDate(d.getDate()+1);
             }
         }
 
         async function fetchSchedule() {
             const date = document.getElementById('dateInput').value;
-            document.getElementById('seniorList').innerHTML = "確認中...";
+            document.getElementById('timeGrid').innerHTML = "<div class='no-data'>読み込み中...</div>";
             const res = await fetch(`${GAS_URL}?action=getSchedule&date=${date}`);
-            allSeniorsData = await res.json();
-            filterSeniors(); // 取得したら今の時間設定でフィルタリング
+            allSeniors = await res.json();
+            renderGrid();
         }
 
-        function filterSeniors() {
-            const selectedTime = document.getElementById('timeInput').value;
-            const container = document.getElementById('seniorList');
-            // 指定した時間に「o」がある先輩だけ抽出
-            const available = allSeniorsData.filter(s => s.slots.includes(selectedTime));
+        function renderGrid() {
+            const grid = document.getElementById('timeGrid');
+            const filterName = document.getElementById('seniorFilter').value;
+            grid.innerHTML = "";
 
-            let html = '';
-            available.forEach(s => {
-                html += `<div class="card">
-                    <strong class="senior-name">${s.name} 先輩</strong>
-                    <div class="info">指導時間を選択</div>
-                    <select id="dur-${s.name}">
-                        <option value="1">30分</option><option value="2">1時間</option>
-                        <option value="3">1.5時間</option><option value="4">2時間</option>
-                    </select>
-                    <button onclick="reserve('${s.name}')">予約する</button>
-                </div>`;
+            TIMES.forEach(time => {
+                // その時間に空いている先輩を抽出
+                let availableSeniors = allSeniors.filter(s => s.slots.includes(time));
+                
+                // ソート（絞り込み）が選択されている場合
+                if (filterName !== "all") {
+                    availableSeniors = availableSeniors.filter(s => s.name === filterName);
+                }
+
+                if (availableSeniors.length > 0 || filterName === "all") {
+                    const card = document.createElement('div');
+                    card.className = "time-card";
+                    
+                    let iconsHtml = availableSeniors.map(s => 
+                        `<div class="senior-icon" onclick="reserve('${s.name}', '${time}')" title="${s.name}">${s.name[0]}</div>`
+                    ).join('');
+
+                    card.innerHTML = `
+                        <span class="time-label">${time}</span>
+                        <div class="slot-info">空き: ${availableSeniors.length}名</div>
+                        <div class="icon-container">${iconsHtml}</div>
+                    `;
+                    grid.appendChild(card);
+                }
             });
-            container.innerHTML = html || '<p style="text-align:center;">この時間は誰も空いていません</p>';
+
+            if (grid.innerHTML === "") {
+                grid.innerHTML = "<div class='no-data'>条件に合う先輩はいません</div>";
+            }
         }
 
-        async function reserve(name) {
-            const date = document.getElementById('dateInput').value;
-            const time = document.getElementById('timeInput').value;
-            const duration = document.getElementById(`dur-${name}`).value;
+        async function reserve(seniorName, time) {
+            const dur = prompt(`${seniorName}先輩への予約\n指導時間を選んでください\n(1:30分, 2:1時間, 4:2時間)`, "2");
+            if (!dur) return;
+
             const user = await liff.getProfile();
             const res = await fetch(GAS_URL, {
                 method: 'POST',
-                body: JSON.stringify({ seniorName:name, date:date, time:time, duration:duration, juniorName:user.displayName, juniorId:user.userId })
+                body: JSON.stringify({
+                    seniorName: seniorName,
+                    date: document.getElementById('dateInput').value,
+                    time: time,
+                    duration: dur,
+                    juniorName: user.displayName,
+                    juniorId: user.userId
+                })
             });
-            if (res.ok) { alert('予約完了！'); liff.closeWindow(); } else { alert('失敗。枠が埋まった可能性があります。'); }
+            if (res.ok) { alert('予約完了！'); liff.closeWindow(); } else { alert('失敗しました。'); }
         }
+
+        async function showAdmin() {
+            const res = await fetch(`${GAS_URL}?action=getSeniors`);
+            const seniors = await res.json();
+            let name = prompt("自分の名前を選択してください:\n" + seniors.map(s => s[0]).join(", "));
+            if (name) {
+                const user = await liff.getProfile();
+                await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'registerID', name: name, userId: user.userId }) });
+                alert("登録完了");
+            }
+        }
+
         main();
     </script>
 </body>
