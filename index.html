@@ -41,7 +41,7 @@
 
     <script>
         const LIFF_ID = "2008788046-laPjP0Ec";
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbz9r5UGsU4tg1FsFiW_rauxNjNlZINnmsoAoZwcYrqSZCtYx1VBbf5aKwR3xN1LA96d/exec";
+        const GAS_URL = "https://script.google.com/macros/s/AKfycby0Mi1KGab6XEotUFp2jsnAy5uYtp-CYg4UvZh2joobiXNcL62_ehgS4trc9QIws3jv/exec";
         let scheduleData = [];
 
         async function main() {
@@ -102,18 +102,35 @@
             if (!grid.innerHTML) grid.innerHTML = "<div class='no-data'>空きがありません</div>";
         }
 
-        async function reserve(name, time) {
-            const dur = prompt(`${name}先輩への予約\n指導時間(1:30分, 2:1時間, 4:2時間)`, "2");
+async function reserve(name, time) {
+            const dur = prompt(`${name}先輩への予約\n指導時間(1:30分, 2:1時間, 3:1.5時間, 4:2時間 ※最大2時間)`, "2");
             if (!dur) return;
+
             const user = await liff.getProfile();
             const res = await fetch(GAS_URL, {
                 method: 'POST',
-                body: JSON.stringify({ seniorName:name, date:document.getElementById('dateInput').value, time:time, duration:dur, juniorName:user.displayName, juniorId:user.userId })
+                body: JSON.stringify({
+                    seniorName: name,
+                    date: document.getElementById('dateInput').value,
+                    time: time,
+                    duration: dur,
+                    juniorName: user.displayName,
+                    juniorId: user.userId
+                })
             });
-            if (res.ok) { alert('予約完了！'); liff.closeWindow(); }
+
+            if (res.ok) {
+                // ▼ ポップアップを表示
+                alert('予約が完了しました！\n公式アカウントからの通知を確認してください。');
+                // ポップアップを閉じた後にLIFFを閉じる
+                liff.closeWindow();
+            } else {
+                alert('予約に失敗しました。既に枠が埋まっている可能性があります。');
+            }
         }
         main();
     </script>
 </body>
 </html>
+
 
