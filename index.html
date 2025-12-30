@@ -3,125 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>指導予約システム</title>
+    <title>弓道部 指導予約システム</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        body { font-family: sans-serif; background: #f4f7f9; margin: 0; padding: 15px; color: #333; }
-        .header { background: #fff; padding: 15px; text-align: center; border-radius: 0 0 15px 15px; margin: -15px -15px 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .card { background: #fff; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e0e0e0; }
-        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-        .tile { background: #fff; padding: 12px; border-radius: 10px; border: 1px solid #eee; text-align: center; }
-        .time { font-weight: bold; color: #1a73e8; margin-bottom: 8px; font-size: 1.1em; }
-        .avatar {
-            width: 40px; height: 40px; border-radius: 50%;
-            background: #00b900; color: #fff;
-            display: inline-flex; align-items: center; justify-content: center;
-            font-size: 14px; font-weight: bold; cursor: pointer; margin: 2px;
-        }
-        .list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-        .no { text-align: center; color: #999; padding: 40px; grid-column: span 2; }
-        button { padding: 10px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        .cancel { background: #ff4d4f; color: white; width: 100%; margin-top: 10px; }
-        select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; }
+        .slot-free { @apply bg-white text-emerald-600 border-emerald-100; }
+        .slot-selected { @apply bg-emerald-500 text-white border-emerald-600 shadow-inner; }
+        .slot-busy { @apply bg-gray-100 text-gray-400 border-gray-100 cursor-not-allowed; }
+        .slot-mine { @apply bg-blue-100 text-blue-600 border-blue-200 font-bold; }
+        ::-webkit-scrollbar { height: 4px; }
+        ::-webkit-scrollbar-thumb { background: #10b981; borderRadius: 10px; }
     </style>
 </head>
-<body>
-    <div class="header"><h3>指導予約</h3></div>
+<body class="bg-slate-50 text-slate-900 font-sans select-none">
+    <div id="app" class="max-w-4xl mx-auto min-h-screen pb-32">
+        <header class="bg-emerald-800 text-white p-4 sticky top-0 z-30 shadow-md">
+            <div class="flex justify-between items-center">
+                <h1 class="text-lg font-bold">🎯 弓道部 指導予約</h1>
+                <span class="text-xs bg-emerald-700 px-2 py-1 rounded">{{ userName }} さん</span>
+            </div>
+            <div class="mt-3 flex gap-2">
+                <input type="date" v-model="selectedDate" @change="loadData" class="flex-1 p-2 rounded text-black text-sm outline-none">
+                <button @click="sortByName = !sortByName" class="bg-emerald-600 px-3 py-1 rounded text-xs">
+                    {{ sortByName ? '名前順済' : '名前でソート' }}
+                </button>
+            </div>
+        </header>
 
-    <div class="card">
-        <label style="font-size: 0.8em; color: #666;">予約日を選択</label>
-        <select id="dateInput" onchange="fetchSchedule()"></select>
-    </div>
+        <main class="p-2">
+            <div v-if="loading" class="text-center py-20 text-emerald-600 animate-pulse font-bold">データを読み込み中...</div>
+            
+            <div v-else class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="overflow-x-auto" id="timeline-container">
+                    <div class="flex bg-slate-50 border-b border-slate-200">
+                        <div class="w-20 flex-shrink-0 p-3 border-r bg-slate-100 sticky left-0 z-20 font-bold text-xs text-slate-500">指導者</div>
+                        <div v-for="t in timeSlots" :key="t" class="w-14 flex-shrink-0 py-2 text-[10px] text-center border-r border-slate-100 text-slate-400">
+                            {{ t }}
+                        </div>
+                    </div>
 
-    <div id="schedule" class="grid"></div>
-
-    <div class="card">
-        <h4>現在の予約状況</h4>
-        <div id="myReserve"></div>
-    </div>
-
-<script>
-// --- 設定 (各自書き換え) ---
-const LIFF_ID = "2008788046-laPjP0Ec"; 
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxfqOck3ufGkZmhKWVTvPQHmv3jo196ga00ODZBQsfBaVl13WfvE-Zf6ZPKbU2qk_Ht/exec";
-
-// スプレッドシートの1行目と完全に一致させる
-const TIMES = [
-    "8:00","8:30","9:00","9:30","10:00","10:30","11:00","11:30",
-    "12:00","12:30","13:00","13:30","14:00","14:30","15:00",
-    "15:30","16:00","16:30","17:00","17:30","18:00","18:30",
-    "19:00","19:30","20:00","20:30","21:00","21:30","22:00"
-];
-
-let myUser = {};
-
-async function main(){
-    initDates();
-    try {
-        await liff.init({ liffId: LIFF_ID });
-        if(!liff.isLoggedIn()) {
-            liff.login();
-            return;
-        }
-        myUser = await liff.getProfile();
-        fetchSchedule();
-    } catch (err) {
-        console.error("LIFF Init Error", err);
-    }
-}
-
-function initDates(){
-    const sel = document.getElementById("dateInput");
-    let d = new Date(2026, 3, 2); // 4月2日開始
-    let end = new Date(2026, 6, 31);
-    while(d <= end){
-        const v = `${d.getFullYear()}-${("0"+(d.getMonth()+1)).slice(-2)}-${("0"+d.getDate()).slice(-2)}`;
-        const o = document.createElement("option");
-        o.value = v; 
-        o.text = `${d.getMonth()+1}/${d.getDate()} (${["日","月","火","水","木","金","土"][d.getDay()]})`;
-        sel.appendChild(o);
-        d.setDate(d.getDate() + 1);
-    }
-}
-
-async function fetchSchedule(){
-    const date = document.getElementById("dateInput").value;
-    const scheduleEl = document.getElementById("schedule");
-    scheduleEl.innerHTML = "<div class='no'>読み込み中...</div>";
-    
-    const res = await fetch(`${GAS_URL}?date=${date}&uid=${myUser.userId}`);
-    const json = await res.json();
-    render(json);
-}
-
-function render(json){
-    const scheduleEl = document.getElementById("schedule");
-    const myResEl = document.getElementById("myReserve");
-    scheduleEl.innerHTML = "";
-
-    TIMES.forEach(t => {
-        const avail = json.schedule.filter(s => s.slots.includes(t));
-        if(avail.length === 0) return;
-
-        const div = document.createElement("div");
-        div.className = "tile";
-        div.innerHTML = `<div class="time">${t}</div>`;
-        const list = document.createElement("div");
-        list.className = "list";
-
-        avail.forEach(s => {
-            const a = document.createElement("div");
-            a.className = "avatar";
-            a.textContent = s.name[0];
-            a.title = s.name;
-            a.onclick = () => reserve(s.name, t);
-            list.appendChild(a);
-        });
-        div.appendChild(list);
-        scheduleEl.appendChild(div);
-    });
-
-    if(!scheduleEl.innerHTML) scheduleEl.innerHTML = "<div class='no'>予約可能な枠はありません</div>";
-
-    if(json.myReserve){
-        myResEl.innerHTML
+                    <div v-for="teacher in sortedTeachers" :key="teacher.name" class="flex border-b border-slate-100 last:border-0 hover:bg-emerald-50/30 transition">
+                        <div class="w-20 flex-shrink-0 p-3 border-r bg-white sticky left-0 z-10 font-bold text-sm shadow-[2px_0_5px_rgba(0,0,0,0.03)]">
+                            {{ teacher.name }}
+                        </div>
+                        <div class="flex">
+                            <div v-for="(status, index) in teacher.slots" 
+                                 :key="index"
+                                 @click="onSlotClick(teacher, index)"
+                                 :class="getSlotClass(teacher.name, index, status)"
+                                 class="w-14 h-14 flex-shrink-0 border-r border-slate-50 flex flex-col items-center justify-center text-[10px] cursor-pointer transition-all relative">
+                                <span v-if="status === 'o'">空き</span>
