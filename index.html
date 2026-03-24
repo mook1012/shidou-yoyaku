@@ -6,6 +6,7 @@
   <title>鹿田弓道部 新歓2026</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    /* CSSはそのまま流用（長いので中身は省略しますが、必ず前のものを含めてください） */
     @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800;900&family=VT323&display=swap');
     :root { --bg: #568670; --pop-pink: #FF87B2; --pop-yellow: #FFD93D; --pop-blue: #70D6FF; --pop-purple: #B388FF; }
     body { background-color: var(--bg); font-family: 'M PLUS Rounded 1c', sans-serif; color: white; margin: 0; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
@@ -47,7 +48,8 @@
   <div id="interactive-bg"></div>
 
   <div id="view-main" class="view active">
-    <div class="header-box"><h1>SHIKATA KYUDO</h1></div>
+    <div class="header-box"><h1 id="title">SHIKATA KYUDO</h1></div>
+    
     <div id="recheck" class="hidden pop-card bg-yellow-50 border-4 border-yellow-400 text-center shadow-none">
       <p id="savedInfo" class="text-7xl font-black text-pink-500 my-1"></p>
       <p class="text-xs text-red-500 font-bold mb-3">スクショを忘れずに！📸</p>
@@ -104,38 +106,148 @@
   <svg id="catTemp" style="display:none;" viewBox="0 0 100 100"><g fill="currentColor"><path d="M86.5,65.8c-1.5-2.2-4.1-3.5-7.1-3.2c-2.9,0.3-5.3,2.2-6.6,4.8c-0.9,1.9-1.1,4-0.5,6c-1.6-0.4-3.2-0.9-4.8-1.6c-0.2-1.4,0.1-2.8,0.8-4.1c1.5-2.9,1.8-6.5,0.7-10c-1.3-4.1-4.8-7.6-9.3-9.2c-1.7-0.6-3.4-0.9-5.2-0.9c-0.6-2.2-1.9-4.3-3.7-5.9c-2.4-2.2-5.6-3.3-8.9-3c-2.5-4-6.6-6.7-11.3-7.3c-3.5-0.4-6.9,0.3-9.9,2.1l-3.3-3.8c-0.6-0.7-1.6-1-2.5-0.8c-0.9,0.2-1.6,0.9-1.9,1.8l-2.3,7.5c-2.4,0.4-4.7,1.4-6.6,3c-4.1,3.4-5.9,8.7-4.6,13.8l0.8,3c-1.7,1.2-3.1,3-3.9,5c-1,2.6-1,5.6-0.1,8.4c0.7,2.2,2,4.1,3.7,5.6c-0.4,1.8-0.4,3.7,0,5.5c0.6,2.4,2,4.4,4,5.8c0.3,1.7,1.1,3.3,2.3,4.6c2.3,2.4,5.6,3.7,8.9,3.5c0.6,0,1.1,0,1.7-0.1c0.9,1.3,2.2,2.3,3.8,2.8c1.2,0.4,2.5,0.5,3.8,0.3c1.6,1.5,3.8,2.4,6,2.3c1.7-0.1,3.3-0.5,4.7-1.4c1.3,1.5,3.2,2.5,5.3,2.6c2.2,0.1,4.3-0.6,5.9-2.1c1.9,1.3,4.2,1.9,6.5,1.6c3.8-0.4,7.1-3,8.6-6.5c0.3-0.7,0.5-1.4,0.7-2.2c1.1,1.2,2.5,2.2,4,2.9c2.7,1.2,5.7,1.2,8.5,0c3-1.3,5-4,5.4-7.3C90.4,72.5,89.1,68.9,86.5,65.8z"/><circle fill="#fff" cx="36" cy="53" r="2"/><circle fill="#fff" cx="52" cy="53" r="2"/></g></svg>
 
   <script>
+    // ★重要：ここに自分のGASのウェブアプリURLを貼り付けてください
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbw9ft69HDCS8Ff31HCfBn_uDv2t-xweMleesPALA90C-45rivyH_OcU9CGjt6ypvYHYGA/exec";
 
-   const GAS_URL = "https://script.google.com/macros/s/AKfycby3Bifp5o-pnV2FJhOh7Z2Q5sMrXxpFtpW1mrhexJZ20t1Or0bHrhA2IaLPA-kR4qTa4Q/exec"; // ここを貼り直す！
+    function switchView(id) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      window.scrollTo({top:0, behavior:'smooth'});
+    }
 
-async function api(payload) {
-  // fetchのオプションに redirect: "follow" を明示し、modeをcorsにする
-  const res = await fetch(GAS_URL, {
-    method: "POST",
-    mode: "no-cors", // GASの仕様上、POST時はレスポンスを受け取るためにno-corsにすることがあります
-    body: JSON.stringify(payload)
-  });
-  // ただし、POST後に中身を読みたい場合は、GAS側が対応している必要があります。
-  // 今回は確実に動かすため、通信方法を少し工夫した以下の方式を推奨します。
-}
+    async function apiRequest(payload) {
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      return await res.json();
+    }
 
-// --- 修正版の通信関数（ここをコピペしてください） ---
-async function callGas(payload) {
-  const b = document.getElementById('subBtn') || document.getElementById('canBtn');
-  try {
-    const res = await fetch(GAS_URL, {
-      method: "POST",
-      body: JSON.stringify(payload)
-    });
-    const json = await res.json();
-    if (json.error) throw new Error(json.error);
-    return json;
-  } catch (e) {
-    // 実際にはGASのPOSTは成功していても、ブラウザがCORSでエラーを出すことがあります。
-    // そのため、予約成功の判定をより柔軟に行います。
-    console.error(e);
-    throw e;
-  }
-}
+    window.onload = async () => {
+      // タイトルへのクリックイベント（これでNullエラーは消えます）
+      const titleEl = document.getElementById('title');
+      if(titleEl) {
+        titleEl.onclick = () => { 
+          if(++taps >= 20) { localStorage.setItem('cat_unlocked', 'true'); activateCat(); alert('CAT UNLOCKED!'); } 
+        };
+      }
+
+      // 保存番号表示
+      try {
+        const saved = JSON.parse(localStorage.getItem('kyudo_booking'));
+        if(saved && saved.serial) {
+          document.getElementById('recheck').classList.remove('hidden');
+          document.getElementById('savedInfo').innerText = `No.${saved.serial}`;
+        }
+      } catch(e) {}
+
+      // データ取得
+      try {
+        const res = await fetch(GAS_URL + "?action=getInitialData").then(r => r.json());
+        const c = document.getElementById('calendar');
+        if(!c) return;
+        c.innerHTML = '';
+        res.calendar.forEach(i => {
+          const item = document.createElement('div');
+          const full = i.max > 0 && i.remaining <= 0;
+          item.className = `day-item ${full ? 'full' : ''}`;
+          item.innerHTML = `
+            <div class="date-label">APR.${i.day}</div>
+            <div class="mato ${i.hasArrow ? 'kasumimato arrow' : 'hoshimato'}"></div>
+          `;
+          if(i.name) {
+            const b = document.createElement('div');
+            b.className = `slots-badge ${full ? 'badge-full' : ''}`;
+            b.innerText = full ? 'FULL' : (i.max > 0 ? `残${i.remaining}` : 'OPEN');
+            if(!full) item.onclick = () => {
+              document.getElementById('fTitle').innerText = `APR.${i.day} / ${i.name}`;
+              document.getElementById('fDate').value = i.date;
+              document.getElementById('fEvent').value = i.name;
+              switchView('view-form');
+            };
+            item.appendChild(b);
+          }
+          c.appendChild(item);
+        });
+        document.getElementById('notices').innerHTML = res.notices.map(n => `<li>📢 ${n.title}: ${n.content}</li>`).join('');
+      } catch(e) {
+        document.getElementById('notices').innerText = "接続エラー。ページを更新してください。";
+      }
+
+      if(localStorage.getItem('cat_unlocked') === 'true') activateCat();
+    };
+
+    let taps = 0;
+
+    document.getElementById('reservationForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const b = document.getElementById('subBtn'); b.innerText = "SENDING..."; b.disabled = true;
+      try {
+        const payload = {
+          action: "processForm",
+          payload: {
+            date: document.getElementById('fDate').value,
+            eventName: document.getElementById('fEvent').value,
+            name: document.getElementById('name').value,
+            kana: document.getElementById('kana').value,
+            major: document.getElementById('major').value,
+            studentId: document.getElementById('studentId').value,
+            contact: document.getElementById('contact').value
+          }
+        };
+        const r = await apiRequest(payload);
+        if(r.error) throw new Error(r.error);
+        document.getElementById('sDisp').innerText = r.serial;
+        localStorage.setItem('kyudo_booking', JSON.stringify(r));
+        switchView('view-success');
+      } catch(err) {
+        alert(err.message);
+        b.innerText = "RETRY!"; b.disabled = false;
+      }
+    };
+
+    document.getElementById('cancelForm').onsubmit = async (e) => {
+      e.preventDefault();
+      if(!confirm("キャンセルしますか？")) return;
+      try {
+        const payload = {
+          action: "cancelBooking",
+          payload: {
+            serial: document.getElementById('cSerial').value,
+            studentId: document.getElementById('cStudentId').value
+          }
+        };
+        const r = await apiRequest(payload);
+        if(r.error) throw new Error(r.error);
+        alert(r.message);
+        localStorage.removeItem('kyudo_booking');
+        location.reload();
+      } catch(err) {
+        alert(err.message);
+      }
+    };
+
+    function activateCat() {
+      document.body.classList.add('cat-unlocked');
+      const bg = document.getElementById('interactive-bg');
+      if(!bg) return;
+      bg.onclick = (e) => {
+        const cols = ['#FF87B2','#FFD93D','#70D6FF','#B388FF','#81C784'];
+        for(let i=0; i<3; i++) {
+          const cat = document.createElement('div'); cat.className='cat';
+          cat.innerHTML = document.getElementById('catTemp').outerHTML.replace('display:none;','').replace(/currentColor/g, cols[i%5]);
+          const sx = Math.random()<0.5?-150:window.innerWidth+150;
+          cat.style.left=sx+'px'; cat.style.top=Math.random()*window.innerHeight+'px';
+          document.body.appendChild(cat);
+          setTimeout(()=>{ 
+            cat.style.left=(e.clientX+(Math.random()-0.5)*150)+'px'; 
+            cat.style.top=(e.clientY+(Math.random()-0.5)*150)+'px'; 
+            cat.style.transform="rotate("+(Math.random()*360)+"deg) scale("+(0.5+Math.random())+")";
+          },50);
+          setTimeout(()=>{ cat.style.opacity=0; setTimeout(()=>cat.remove(),2000); },2500);
+        }
+      };
+    }
   </script>
 </body>
 </html>
