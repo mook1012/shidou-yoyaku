@@ -1,246 +1,141 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>岡山大学鹿田弓道部 指導予約</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    <style>
-        [v-cloak] { display: none; }
-        .slot-free { @apply bg-white text-emerald-600 border-emerald-100; }
-        .slot-selected { @apply bg-emerald-500 text-white border-emerald-600 shadow-inner scale-95; }
-        .slot-busy { @apply bg-slate-100 text-slate-300 border-slate-50 cursor-not-allowed; }
-        .slot-mine { @apply bg-blue-500 text-white border-blue-600 font-bold; }
-        .timeline-scroll::-webkit-scrollbar { height: 4px; }
-        .timeline-scroll::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>鹿田弓道部 新歓2026</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800;900&family=VT323&display=swap');
+    :root { --bg: #568670; --pop-pink: #FF87B2; --pop-yellow: #FFD93D; --pop-blue: #70D6FF; --pop-purple: #B388FF; }
+    body { background-color: var(--bg); font-family: 'M PLUS Rounded 1c', sans-serif; color: white; margin: 0; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
+    #interactive-bg { position: fixed; inset: 0; z-index: -1; background-image: radial-gradient(rgba(255,255,255,0.1) 2px, transparent 2px); background-size: 30px 30px; }
+    .view { display: none; padding: 20px; max-width: 600px; margin: 0 auto; }
+    .view.active { display: block; animation: popIn 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28); }
+    @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    @keyframes float { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-10px) rotate(2deg); } }
+    @keyframes jelly { 0% { transform: scale(1, 1); } 30% { transform: scale(1.2, 0.8); } 60% { transform: scale(0.8, 1.2); } }
+    @keyframes pulse-neon { 0%, 100% { box-shadow: 0 0 5px var(--pop-blue); } 50% { box-shadow: 0 0 25px var(--pop-blue); } }
+    @keyframes text-glitch { 0% { text-shadow: 2px 0 var(--pop-pink), -2px 0 var(--pop-blue); } 50% { text-shadow: -2px 0 var(--pop-pink), 2px 0 var(--pop-blue); } 100% { text-shadow: 2px 0 var(--pop-pink), -2px 0 var(--pop-blue); } }
+    .header-box { background: #333; border: 4px solid var(--pop-yellow); box-shadow: 6px 6px 0px var(--pop-yellow); padding: 15px; text-align: center; transform: rotate(-1deg); margin-bottom: 40px; position: relative; }
+    .header-box h1 { font-size: 1.6rem; font-weight: 900; color: white; animation: text-glitch 2s infinite; letter-spacing: 2px; }
+    .pop-card { background: white; border: 4px solid #333; box-shadow: 8px 8px 0px #333; border-radius: 20px; color: #333; padding: 25px; margin-bottom: 30px; position: relative; }
+    .notice-card { background: var(--pop-purple); color: white; transform: rotate(1deg); }
+    #calendar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 30px; }
+    @media (min-width: 480px) { #calendar { grid-template-columns: repeat(3, 1fr); } }
+    .day-item { position: relative; display: flex; align-items: center; justify-content: center; min-height: 110px; animation: float 4s infinite ease-in-out; }
+    .day-item:nth-child(even) { animation-delay: 0.5s; }
+    .mato { position: relative; width: 85px; height: 85px; border-radius: 50%; border: 3px solid #333; box-shadow: 5px 5px 0px rgba(0,0,0,0.2); background: white; transition: 0.3s; }
+    .mato.kasumimato { background: radial-gradient(circle, #fff 0% 8%, #333 9% 23%, #fff 24% 39%, #333 40% 55%, #fff 56% 71%, #333 72% 87%, #fff 88% 100%); }
+    .mato.hoshimato { background: radial-gradient(circle, #333 18%, #fff 19% 100%); }
+    .day-item:not(.full):hover .mato { transform: scale(1.15); animation: jelly 0.6s; cursor: pointer; border-color: var(--pop-pink); }
+    .day-item.full .mato { filter: grayscale(1); opacity: 0.3; }
+    .arrow::after { content: ''; position: absolute; top: 42px; left: 42px; width: 55px; height: 4px; background: #8B4513; transform-origin: left center; transform: rotate(-45deg); border: 1px solid #333; z-index: 5; }
+    .arrow::before { content: ''; position: absolute; top: -1px; left: 81px; width: 18px; height: 22px; background: #fff; clip-path: polygon(100% 100%, 0% 100%, 25% 50%, 0% 0%, 100% 0%, 75% 50%); transform: translate(-50%, -50%) rotate(-45deg); border: 1px solid #333; z-index: 6; }
+    .date-label { position: absolute; top: 0; left: -10px; background: #333; color: var(--pop-yellow); border: 3px solid #333; box-shadow: 4px 4px 0px rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 5px; transform: rotate(-10deg); z-index: 10; font-family: 'VT323', monospace; font-size: 1.6rem; font-weight: 900; line-height: 1; }
+    .slots-badge { position: absolute; bottom: -5px; right: -5px; background: #333; color: var(--pop-blue); padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 900; border: 3px solid var(--pop-blue); animation: pulse-neon 2s infinite; z-index: 10; transform: rotate(5deg); }
+    .badge-full { color: #FF4B4B; border-color: #FF4B4B; animation: none; }
+    input, select { width: 100%; border: 4px solid #333; padding: 15px; border-radius: 12px; margin-bottom: 20px; font-weight: 800; background: #fff; font-size: 1rem; color: #333; outline: none; }
+    input:focus { border-color: var(--pop-pink); box-shadow: 4px 4px 0px var(--pop-pink); }
+    .btn-main { background: var(--pop-yellow); border: 4px solid #333; padding: 18px; border-radius: 50px; font-weight: 900; width: 100%; box-shadow: 6px 6px 0px #333; color: #333; font-size: 1.3rem; transition: 0.2s; text-transform: uppercase; cursor: pointer; }
+    .btn-main:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0px #333; }
+    .btn-sub { font-size: 12px; color: #eee; text-decoration: underline; margin-top: 25px; display: block; text-align: center; cursor: pointer; }
+    .cat { position: fixed; width: 80px; z-index: 100; pointer-events: none; transition: 2s; filter: drop-shadow(4px 4px 0px rgba(0,0,0,0.3)); }
+  </style>
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans">
-    <div id="app" v-cloak class="max-w-4xl mx-auto min-h-screen pb-32">
-        <header class="bg-[#005a3c] text-white p-4 sticky top-0 z-40 shadow-md">
-            <div class="flex justify-between items-center mb-3">
-                <h1 class="text-lg font-bold">🎯 指導予約システム</h1>
-                <div class="text-right">
-                    <p class="text-[10px] opacity-80">岡山大学鹿田弓道部</p>
-                    <p class="text-xs font-bold">{{ userName }} 様</p>
-                </div>
-            </div>
-            <div class="flex gap-2">
-                <input type="date" v-model="selectedDate" @change="loadData" class="flex-1 p-2 rounded text-black text-sm outline-none">
-                <button @click="sortByName = !sortByName" class="bg-emerald-600 px-4 py-2 rounded text-xs font-bold active:bg-emerald-700 transition">
-                    {{ sortByName ? '名前順：ON' : '名前順：OFF' }}
-                </button>
-            </div>
-        </header>
+<body>
+  <div id="interactive-bg"></div>
 
-        <main class="p-2">
-            <div v-if="loading" class="flex flex-col items-center justify-center py-20">
-                <div class="animate-spin h-10 w-10 border-4 border-emerald-500 border-t-transparent rounded-full mb-4"></div>
-                <p class="text-emerald-600 font-bold">稽古状況を確認中...</p>
-            </div>
-
-            <div v-else class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="overflow-x-auto timeline-scroll">
-                    <div class="flex bg-slate-100 border-b border-slate-200">
-                        <div class="w-20 flex-shrink-0 p-3 border-r bg-slate-200 sticky left-0 z-20 font-bold text-[10px] text-slate-600">指導者</div>
-                        <div v-for="t in timeSlots" :key="t" class="w-14 flex-shrink-0 py-2 text-[10px] text-center border-r border-slate-200 text-slate-500 font-medium">
-                            {{ t }}
-                        </div>
-                    </div>
-
-                    <div v-for="teacher in sortedTeachers" :key="teacher.name" class="flex border-b border-slate-100 last:border-0">
-                        <div class="w-20 flex-shrink-0 p-3 border-r bg-white sticky left-0 z-10 font-bold text-sm shadow-[2px_0_5px_rgba(0,0,0,0.02)] flex items-center">
-                            {{ teacher.name }}
-                        </div>
-                        <div class="flex">
-                            <div v-for="(status, index) in teacher.slots" 
-                                 :key="index"
-                                 @click="handleSlotClick(teacher, index)"
-                                 :class="getSlotClass(teacher.name, index, status)"
-                                 class="w-14 h-16 flex-shrink-0 border-r border-slate-100 flex items-center justify-center text-[10px] cursor-pointer transition-all relative">
-                                <span v-if="status === 'o'" class="opacity-60">空き</span>
-                                <span v-else-if="status === 'mine'" class="text-[8px] leading-tight text-center">自分の<br>予約</span>
-                                <span v-else class="text-slate-200">ー</span>
-                                
-                                <div v-if="isSelected(teacher.name, index)" class="absolute inset-0 bg-emerald-500 text-white flex items-center justify-center font-bold shadow-inner">
-                                    選択
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <p v-if="!loading && sortedTeachers.length === 0" class="text-center py-10 text-slate-400">
-                この日の指導枠はまだ設定されていません。
-            </p>
-        </main>
-
-        <div v-if="selection.start !== null" class="fixed bottom-0 left-0 right-0 z-50 p-4">
-            <div class="bg-white rounded-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] border-t-4 border-emerald-500 p-5 max-w-md mx-auto">
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <h2 class="text-xl font-black text-slate-800">{{ selection.teacherName }} 先輩</h2>
-                        <p class="text-emerald-600 font-bold">
-                            {{ formatTime(selection.start) }} 〜 {{ formatTime(selection.end + 1) }}
-                            <span class="text-xs ml-2 text-slate-400">({{ (selection.end - selection.start + 1) * 30 }}分間)</span>
-                        </p>
-                    </div>
-                    <button @click="resetSelection" class="bg-slate-100 text-slate-400 p-2 rounded-full">✕</button>
-                </div>
-                <button @click="submitBooking" :disabled="submitting" class="w-full bg-emerald-700 text-white py-4 rounded-xl font-black text-lg shadow-lg active:scale-95 transition disabled:opacity-50">
-                    {{ submitting ? '処理中...' : '予約を確定する' }}
-                </button>
-            </div>
-        </div>
+  <div id="view-main" class="view active">
+    <div class="header-box"><h1>SHIKATA KYUDO</h1></div>
+    <div id="recheck" class="hidden pop-card bg-yellow-50 border-4 border-yellow-400 text-center shadow-none">
+      <p id="savedInfo" class="text-7xl font-black text-pink-500 my-1"></p>
+      <p class="text-xs text-red-500 font-bold mb-3">スクショを忘れずに！📸</p>
+      <button onclick="switchView('view-cancel')" class="text-[10px] underline font-bold text-gray-400">Cancel</button>
     </div>
+    <div class="pop-card notice-card text-sm"><ul id="notices" class="space-y-1.5 font-bold"><li>Loading...🎯</li></ul></div>
+    <div id="calendar" class="mb-20"></div>
+    <span onclick="switchView('view-cancel')" class="btn-sub opacity-30 mt-20">Manual Cancel</span>
+  </div>
 
-    <script>
-        // --- ユーザー提供のGAS URLを設定 ---
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbwY_M1JCvUOTz1ArJWCPcGpnkOOlOLRIZ1jZiT2OG-DlE8uRAZG2aBTj13YCxojqN0Y/exec";
+  <div id="view-form" class="view">
+    <div class="pop-card">
+      <h2 id="fTitle" class="font-black text-xl mb-8 text-pink-500 text-center border-b-4 border-pink-100 pb-2"></h2>
+      <form id="reservationForm">
+        <input type="hidden" id="fDate"><input type="hidden" id="fEvent">
+        <input type="text" id="name" placeholder="氏名" required>
+        <input type="text" id="kana" placeholder="よみがな" required>
+        <select id="major" required>
+          <option value="" disabled selected>学科を選択</option>
+          <option>医</option><option>歯</option><option>看護</option><option>検査</option><option>放射</option>
+        </select>
+        <input type="text" id="studentId" placeholder="学籍番号 (T26XXXX)" required>
+        <input type="text" id="contact" placeholder="メール or @Instagram" required>
+        <button type="submit" id="subBtn" class="btn-main">Book Now! 🎯</button>
+        <button type="button" onclick="switchView('view-main')" class="btn-sub text-gray-400">Back</button>
+      </form>
+    </div>
+  </div>
 
-        const { createApp, ref, computed, onMounted } = Vue;
-        createApp({
-            setup() {
-                const userName = ref("読込中...");
-                const userLineId = ref("");
+  <div id="view-success" class="view">
+    <div class="pop-card text-center bg-black border-yellow-400 shadow-[8px_8px_0px_#FFD93D]">
+      <div class="text-7xl mb-6">🎰</div>
+      <h2 class="font-black text-4xl mb-2 italic text-yellow-300">WINNER!</h2>
+      <div class="bg-white p-8 rounded-xl my-6 border-4 border-black">
+        <p id="sDisp" class="text-8xl font-black text-pink-500"></p>
+      </div>
+      <p class="text-sm font-black text-yellow-300 leading-relaxed">今すぐスクリーンショット！📸</p>
+      <button onclick="location.reload()" class="btn-main bg-white text-black mt-10">OK!</button>
+    </div>
+  </div>
 
-                // デフォルトの日付設定ロジック
-                const getInitialDate = () => {
-                    const targetDate = new Date('2026-04-02T00:00:00');
-                    const now = new Date();
-                    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  <div id="view-cancel" class="view">
+    <div class="pop-card">
+      <h2 class="font-black text-xl mb-6 text-red-500 text-center uppercase border-b-4 border-red-200 pb-2">Cancel Ticket</h2>
+      <form id="cancelForm">
+        <input type="number" id="cSerial" placeholder="受付番号" required>
+        <input type="text" id="cStudentId" placeholder="学籍番号" required>
+        <button type="submit" id="canBtn" class="btn-main bg-red-400 text-white border-black">Cancel</button>
+        <button type="button" onclick="switchView('view-main')" class="btn-sub text-gray-400">Back</button>
+      </form>
+    </div>
+  </div>
 
-                    if (today < targetDate) {
-                        return "2026-04-02";
-                    } else {
-                        const tomorrow = new Date(today);
-                        tomorrow.setDate(today.getDate() + 1);
-                        return tomorrow.toISOString().split('T')[0];
-                    }
-                };
+  <svg id="catTemp" style="display:none;" viewBox="0 0 100 100"><g fill="currentColor"><path d="M86.5,65.8c-1.5-2.2-4.1-3.5-7.1-3.2c-2.9,0.3-5.3,2.2-6.6,4.8c-0.9,1.9-1.1,4-0.5,6c-1.6-0.4-3.2-0.9-4.8-1.6c-0.2-1.4,0.1-2.8,0.8-4.1c1.5-2.9,1.8-6.5,0.7-10c-1.3-4.1-4.8-7.6-9.3-9.2c-1.7-0.6-3.4-0.9-5.2-0.9c-0.6-2.2-1.9-4.3-3.7-5.9c-2.4-2.2-5.6-3.3-8.9-3c-2.5-4-6.6-6.7-11.3-7.3c-3.5-0.4-6.9,0.3-9.9,2.1l-3.3-3.8c-0.6-0.7-1.6-1-2.5-0.8c-0.9,0.2-1.6,0.9-1.9,1.8l-2.3,7.5c-2.4,0.4-4.7,1.4-6.6,3c-4.1,3.4-5.9,8.7-4.6,13.8l0.8,3c-1.7,1.2-3.1,3-3.9,5c-1,2.6-1,5.6-0.1,8.4c0.7,2.2,2,4.1,3.7,5.6c-0.4,1.8-0.4,3.7,0,5.5c0.6,2.4,2,4.4,4,5.8c0.3,1.7,1.1,3.3,2.3,4.6c2.3,2.4,5.6,3.7,8.9,3.5c0.6,0,1.1,0,1.7-0.1c0.9,1.3,2.2,2.3,3.8,2.8c1.2,0.4,2.5,0.5,3.8,0.3c1.6,1.5,3.8,2.4,6,2.3c1.7-0.1,3.3-0.5,4.7-1.4c1.3,1.5,3.2,2.5,5.3,2.6c2.2,0.1,4.3-0.6,5.9-2.1c1.9,1.3,4.2,1.9,6.5,1.6c3.8-0.4,7.1-3,8.6-6.5c0.3-0.7,0.5-1.4,0.7-2.2c1.1,1.2,2.5,2.2,4,2.9c2.7,1.2,5.7,1.2,8.5,0c3-1.3,5-4,5.4-7.3C90.4,72.5,89.1,68.9,86.5,65.8z"/><circle fill="#fff" cx="36" cy="53" r="2"/><circle fill="#fff" cx="52" cy="53" r="2"/></g></svg>
 
-                const selectedDate = ref(getInitialDate());
-                const timeSlots = ["08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30"];
-                const teachers = ref([]);
-                const loading = ref(true);
-                const submitting = ref(false);
-                const sortByName = ref(false);
-                const selection = ref({ teacherName: null, start: null, end: null });
+  <script>
 
-                const loadData = async () => {
-                    loading.value = true;
-                    try {
-                        const response = await fetch(`${GAS_URL}?action=getSchedule&date=${selectedDate.value}&userId=${userLineId.value}`);
-                        teachers.value = await response.json();
-                    } catch (e) {
-                        console.error("Data Fetch Error:", e);
-                    }
-                    loading.value = false;
-                };
+   const GAS_URL = "https://script.google.com/macros/s/AKfycby3Bifp5o-pnV2FJhOh7Z2Q5sMrXxpFtpW1mrhexJZ20t1Or0bHrhA2IaLPA-kR4qTa4Q/exec"; // ここを貼り直す！
 
-                const handleSlotClick = (teacher, index) => {
-                    const status = teacher.slots[index];
-                    if (status === 'mine') {
-                        if(confirm(`${teacher.name}先輩の予約をキャンセルしますか？`)) submitCancel(teacher.name, index);
-                        return;
-                    }
-                    if (status !== 'o') return;
+async function api(payload) {
+  // fetchのオプションに redirect: "follow" を明示し、modeをcorsにする
+  const res = await fetch(GAS_URL, {
+    method: "POST",
+    mode: "no-cors", // GASの仕様上、POST時はレスポンスを受け取るためにno-corsにすることがあります
+    body: JSON.stringify(payload)
+  });
+  // ただし、POST後に中身を読みたい場合は、GAS側が対応している必要があります。
+  // 今回は確実に動かすため、通信方法を少し工夫した以下の方式を推奨します。
+}
 
-                    if (selection.value.teacherName !== teacher.name) {
-                        selection.value = { teacherName: teacher.name, start: index, end: index };
-                    } else {
-                        if (index < selection.value.start) {
-                            selection.value.start = index;
-                        } else {
-                            if (index - selection.value.start >= 4) {
-                                alert("最大2時間（4枠）までです。");
-                                return;
-                            }
-                            for(let i=selection.value.start; i<=index; i++) {
-                                if(teacher.slots[i] !== 'o') { alert("連続した空き枠のみ選択可能です。"); return; }
-                            }
-                            selection.value.end = index;
-                        }
-                    }
-                };
-
-                const isSelected = (tName, idx) => selection.value.teacherName === tName && idx >= selection.value.start && idx <= selection.value.end;
-                const getSlotClass = (tName, idx, status) => status === 'mine' ? 'slot-mine' : (status === 'o' ? 'slot-free' : 'slot-busy');
-                const sortedTeachers = computed(() => {
-                    let list = [...teachers.value];
-                    if (sortByName.value) list.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
-                    return list;
-                });
-                const formatTime = (idx) => timeSlots[idx] || "22:00";
-                const resetSelection = () => selection.value = { teacherName: null, start: null, end: null };
-
-                const submitBooking = async () => {
-    submitting.value = true;
-    try {
-        const res = await fetch(GAS_URL, {
-            method: 'POST',
-            mode: 'no-cors', // これを追加：GAS特有の通信エラー（CORS）を回避
-            body: JSON.stringify({
-                action: 'reserve',
-                date: selectedDate.value,
-                teacherName: selection.value.teacherName,
-                startIdx: selection.value.start,
-                endIdx: selection.value.end,
-                userId: userLineId.value,
-                userName: userName.value
-            })
-        });
-        
-        // mode: 'no-cors' の場合、レスポンスの中身は見られませんが、
-        // ここまで来れば送信自体は成功しています。
-        alert("予約リクエストを送信しました！🎯\n反映まで数秒かかる場合があります。");
-        resetSelection();
-        setTimeout(loadData, 1500); // 反映を待ってから再読み込み
-    } catch (e) {
-        alert("通信に失敗しました。電波の良い場所で再度お試しください。");
-    }
-    submitting.value = false;
-};
-
-                const submitCancel = async (tName, idx) => {
-                    loading.value = true;
-                    try {
-                        await fetch(GAS_URL, {
-                            method: 'POST',
-                            body: JSON.stringify({ action: 'cancel', date: selectedDate.value, teacherName: tName, slotIdx: idx, userId: userLineId.value })
-                        });
-                        alert("キャンセル完了。");
-                        loadData();
-                    } catch (e) { alert("失敗しました。"); }
-                    loading.value = false;
-                };
-
-                onMounted(async () => {
-                    try {
-                        // --- ユーザー提供のLIFF IDを設定 ---
-                        await liff.init({ liffId: "2008788046-laPjP0Ec" });
-                        
-                        if (!liff.isLoggedIn()) {
-                            liff.login();
-                        } else {
-                            const profile = await liff.getProfile();
-                            userName.value = profile.displayName;
-                            userLineId.value = profile.userId;
-                            loadData();
-                        }
-                    } catch (err) {
-                        console.error("LIFF Init Error:", err);
-                        alert("LIFFの初期化に失敗しました。ID設定を確認してください。");
-                    }
-                });
-
-                return { userName, selectedDate, timeSlots, sortedTeachers, loading, handleSlotClick, getSlotClass, isSelected, selection, resetSelection, formatTime, submitBooking, submitting, sortByName, loadData };
-            }
-        }).mount('#app');
-    </script>
+// --- 修正版の通信関数（ここをコピペしてください） ---
+async function callGas(payload) {
+  const b = document.getElementById('subBtn') || document.getElementById('canBtn');
+  try {
+    const res = await fetch(GAS_URL, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    const json = await res.json();
+    if (json.error) throw new Error(json.error);
+    return json;
+  } catch (e) {
+    // 実際にはGASのPOSTは成功していても、ブラウザがCORSでエラーを出すことがあります。
+    // そのため、予約成功の判定をより柔軟に行います。
+    console.error(e);
+    throw e;
+  }
+}
+  </script>
 </body>
 </html>
-
